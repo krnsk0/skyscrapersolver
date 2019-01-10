@@ -76,17 +76,22 @@ function printBoard(list) {
 // list. The value of the 'prop' flag is preserved.
 function crossOff(list, idx, ...values) {
   let prop = list[idx].prop
-  values.forEach(val =>
+  values.forEach(val => {
     list[idx] = list[idx].filter(x => x !== val)
-  )
+  })
   list[idx].prop = prop
   console.assert(list[idx].length >= 1, `constraint list ${idx} is empty`)
   return list
 }
-// same as above but solves a cell
-function crossOffAllBut(list, idx, value) {
+
+// same as above but inverted
+function crossOffAllBut(list, idx, ...values) {
   let prop = list[idx].prop
-  list[idx] = list[idx].filter(x => x === value)
+  console.log('start list', list[idx])
+
+  list[idx] = list[idx].filter(x => values.includes(x))
+
+  console.log('end list', list[idx])
   list[idx].prop = prop
   console.assert(list[idx].length >= 1, `constraint list ${idx} is empty`)
   return list
@@ -312,17 +317,20 @@ function checkClue(arr, clue) {
   return vis === clue
 }
 
+
 // takes an array of arrays each representing a row
 // returns an array with the value for solved cells
 // and 0 for unsolved cells
 function getResolvedCellsFromComboList(array) {
   let result = []
   for (let i = 0; i < array[0].length; i += 1) {
-    let firstValue = array[0][i]
-    let solved = array.every(combo => combo[i] === firstValue)
-    if (solved) result.push(firstValue)
-    else result.push(0)
+    result.push([])
   }
+  array.forEach(combo => {
+    combo.forEach((cell, i) => {
+      if (!(result[i].includes(cell))) result[i].push(cell)
+    })
+  })
   return result
 }
 
@@ -333,8 +341,6 @@ function getOppositeClue(idx, n) {
   else if (idx >= (3 * n)) return (2 * n) - 1 - (idx % n)
   else throw 'invalid clue index; not on top or left'
 }
-
-
 
 // Generates every possible combination fow row/column,
 // filters for those that pass both clue tests,
@@ -367,21 +373,31 @@ function combinatorialClueProcessor(list, clueIndex) {
   if (clueL !== 0) combinations = combinations.filter(combo => checkClue(combo, clueL))
   if (clueR !== 0) combinations = combinations.filter(combo => checkClue(combo.slice().reverse(), clueR))
 
-  // have we solved any cells?
-  let solvedCells = false
+  // see what we learned...
+  let madeChanges = false
   let resolvedCells = getResolvedCellsFromComboList(combinations)
-  console.log('    resolvedCells:', resolvedCells)
-  resolvedCells.forEach((cell, index) => {
-    // if we solved it here, and if it's not solved in the constraint data...
-    if (cell !== 0 && rowConstraints[index].length > 1) {
+  resolvedCells.forEach((possibilities, index) => {
+    // if we solved it here, and if it's not solved in the constraint data,
+    // then push it to the data
+    if (possibilities.length === 1 && rowConstraints[index].length > 1) {
       let solvedIndex = rowIndices[index]
-      console.log(`  idx ${solvedIndex} must be ${cell}`)
-      crossOffAllBut(list, solvedIndex, cell)
-      solvedCells = true
+      console.log(`  idx ${solvedIndex} must be ${possibilities[0]}`)
+      crossOffAllBut(list, solvedIndex, possibilities[0])
+      madeChanges = true
     }
+
+    // can we constrain any cells further?
+    if (rowConstraints[index].length > 1 && rowConstraints[index].length !== possibilities.length) {
+      possibilities = possibilities.sort((a,b) => a - b)
+      let solvedIndex = rowIndices[index]
+      console.log(`constraining ${solvedIndex} to ${possibilities}`)
+      crossOffAllBut(list, solvedIndex, ...possibilities)
+      madeChanges = true
+    }
+
   })
 
-  if (solvedCells) return true
+  if (madeChanges) return true
   else return false
 }
 
@@ -426,7 +442,6 @@ function solverLoop(list) {
   return list
 }
 
-
 // This is the top-level function that calls everything else.
 function solvePuzzle(clues) {
   let list = contstraintListFactory(clues)
@@ -443,8 +458,5 @@ function solvePuzzle(clues) {
 
 // ************
 
-var clues = [ 3, 2, 2, 3, 2, 1,
-              1, 2, 3, 3, 2, 2,
-              5, 1, 2, 2, 4, 3,
-              3, 2, 1, 2, 2, 4]
+var clues = [ 0, 2, 3, 0, 2, 0, 0, 5, 0, 4, 5, 0, 4, 0, 0, 4, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0 ]
 solvePuzzle(clues)
