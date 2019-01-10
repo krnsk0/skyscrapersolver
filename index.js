@@ -87,11 +87,7 @@ function crossOff(list, idx, ...values) {
 // same as above but inverted
 function crossOffAllBut(list, idx, ...values) {
   let prop = list[idx].prop
-  console.log('start list', list[idx])
-
   list[idx] = list[idx].filter(x => values.includes(x))
-
-  console.log('end list', list[idx])
   list[idx].prop = prop
   console.assert(list[idx].length >= 1, `constraint list ${idx} is empty`)
   return list
@@ -229,11 +225,13 @@ function processOfElimination(list) {
 // the function crosses off the value of that cell
 // for others in its row/column
 function propagateConstraints(list) {
-  console.log('  Propagaging from completed cells')
+  console.log('  Propagating from completed cells')
 
   let n = Math.sqrt(list.length)
   list.forEach((constraintList, idx) => {
     if (constraintList.prop === false && constraintList.length === 1) {
+
+      console.log('    cell', idx, 'must be', constraintList[0], '!!')
 
       let valueToCrossOff = constraintList[0]
       console.log('    Propagating val', valueToCrossOff, 'at idx', idx)
@@ -402,6 +400,28 @@ function combinatorialClueProcessor(list, clueIndex) {
 }
 
 
+// sort the clue indices to help optimize
+function sortClueIndices(clueIndices, list) {
+  let n = Math.sqrt(list.length)
+  //console.log('unsorted', clueIndices)
+
+  clueIndices.sort((a, b) => {
+    let rowIndicesA = getListOfAdjacentsFromClueIndex(a, n)
+    let rowConstraintsA = rowIndicesA.map(idx => list[idx].slice())
+    let totalA = rowConstraintsA.reduce((a, row) => a + row.length, 0)
+
+    let rowIndicesB = getListOfAdjacentsFromClueIndex(b, n)
+    let rowConstraintsB = rowIndicesB.map(idx => list[idx].slice())
+    let totalB = rowConstraintsB.reduce((a, row) => a + row.length, 0)
+
+    //console.log(`clue ${a} : `, totalA)
+    return totalA - totalB
+  })
+  //console.log('sorted', clueIndices)
+  return clueIndices
+}
+
+
 
 // This function runs the various forms of
 // constraint propagation and inference in sequence
@@ -424,6 +444,11 @@ function solverLoop(list) {
     let topClues = Array.from({length: n}, (c, i) => i)
     let leftClues = Array.from({length: n}, (c, i) => i + (3 * n))
     let clueIndices = [...topClues, ...leftClues]
+
+    // sort the clueIndices to help optimize
+    clueIndices = sortClueIndices(clueIndices, list)
+
+    // run the clues
     clueIndices.forEach(clueIndex => {
       let changes = combinatorialClueProcessor(list, clueIndex)
       if (changes) {
@@ -442,13 +467,70 @@ function solverLoop(list) {
   return list
 }
 
+// takes the constraint list as input
+// returns an index that is almost but not
+// completely constrained to sort
+function getIndexToGuessAndCheck(list) {
+  let n = Math.sqrt(list.length)
+  let indices = Array.from({length: n ** 2}, (c, i) => i)
+  indices = indices.filter(i => list[i].length > 1)
+  indices.sort((a, b) => list[a].length - list[b].length)
+  return indices
+}
+// runs one iteration of guess and check
+function guessAndCheck(list, tryIndex) {
+  // iterate possible values for the tryIndex
+  for (let i = 0; i < list[tryIndex].length; i += 1) {
+    let tryValue = list[tryIndex][i]
+    console.log(`Trying value ${tryValue} for index ${tryIndex}`)
+
+    // copy our list
+    let clueCopy = list.clues
+    let tryList = list.slice()
+    tryList.clues = clueCopy
+
+
+    tryList = crossOffAllBut(tryList, tryIndex, tryValue)
+
+    try {
+      tryList = solverLoop(tryList)
+    }
+    catch (error) {
+
+      console.log('CAUGHT an error, trying next value...')
+      continue
+    }
+
+    console.log(`Solved ${tryIndex} -- it's ${tryValue}!`)
+    return tryList
+  }
+}
+
+// last resort
+function guessAndCheckRunner(list) {
+  console.log('\n\nGuess and check time!')
+  let n = Math.sqrt(list.length)
+  let tryIndices = getIndexToGuessAndCheck(list)
+
+  // iterate all tryIndices
+  for (let j = 0; j < tryIndices.length; j += 1) {
+    let tryIndex = tryIndices[j]
+    list = guessAndCheck(list, tryIndex)
+  }
+
+  return list
+}
+
+
 // This is the top-level function that calls everything else.
 function solvePuzzle(clues) {
   let list = contstraintListFactory(clues)
   list = clueEdgeConstraints(list)
   list = solverLoop(list)
+  list = guessAndCheckRunner(list)
   printConstraints(list)
   printBoard(list)
+
 
   let board = listToBoard(list)
   return board
@@ -458,5 +540,8 @@ function solvePuzzle(clues) {
 
 // ************
 
-var clues = [ 0, 2, 3, 0, 2, 0, 0, 5, 0, 4, 5, 0, 4, 0, 0, 4, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0 ]
-solvePuzzle(clues)
+
+
+var hard7x7 = [ 3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3 ]
+
+solvePuzzle(hard7x7)
