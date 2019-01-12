@@ -101,6 +101,7 @@ function crossOffAllBut(list, idx, ...values) {
 // This is to allow us to standardize how we push changes
 // into our constraint list without having to worry about
 // whehter the clue is top, left, etc.
+// Should be re-written to use rotation on a multidim array
 function getListOfAdjacentsFromClueIndex(index, n) {
   // run for top clues
   if (index < n) {
@@ -512,7 +513,7 @@ function guessAndCheckRunner(list) {
   let n = Math.sqrt(list.length)
   let tryIndices = getIndexToGuessAndCheck(list)
 
-  // iterate all tryIndices
+  // iterate all values in tryIndices
   for (let j = 0; j < tryIndices.length; j += 1) {
     let tryIndex = tryIndices[j]
     list = guessAndCheck(list, tryIndex)
@@ -521,8 +522,7 @@ function guessAndCheckRunner(list) {
   return list
 }
 
-
-// This is the top-level function that calls everything else.
+// Top-level function that calls everything else.
 function solvePuzzle(clues) {
   let list = contstraintListFactory(clues)
   list = clueEdgeConstraints(list)
@@ -538,10 +538,6 @@ function solvePuzzle(clues) {
 
 
 
-// ************
-
-
-
+// demo
 var hard7x7 = [ 3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3 ]
-
 solvePuzzle(hard7x7)
