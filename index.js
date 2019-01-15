@@ -13,6 +13,12 @@ function contstraintListFactory(clues) {
   return list
 }
 
+// outputs a range inclusive
+function range(min, max) {
+  return Array.from({length: max - min + 1}, (_, i) => i + min)
+
+}
+
 // Formats a constraint list
 // to print to the console.
 function printConstraints(list) {
@@ -132,40 +138,51 @@ function getListOfAdjacentsFromClueIndex(index, n) {
 }
 
 
+
+// allows setting of constraints directly
+function setConstraints(list, cellIndex, constraints) {
+  list[cellIndex] = constraints
+  list[cellIndex].prop = false
+}
+
 // This function takes a constraint list array with clues stored
 // in its list property and pushes changes to the constraints
 // based on the clues.
 function clueEdgeConstraints(list) {
   console.log('Parsing inital clue constraints')
   let n = Math.sqrt(list.length)
+
+  // for each of the clues...
   list.clues.forEach((clue, clueIndex) => {
-    // push constraint: adjacent must be n
+
+    // store the indices of the cells this clue maps to from closest to farthest
+    const cellIndices = getListOfAdjacentsFromClueIndex(clueIndex, n)
+
+    // if the clue is 1
+    // set constraint: adjacent must be n
     if (clue === 1) {
-      let indices = getListOfAdjacentsFromClueIndex(clueIndex, n)
-      let values0toN = Array.from({length: n}, (c, i) => i + 1)
-      let valuesToCrossOff = values0toN.filter(c => c !== n)
-      list = crossOff(list, indices[0], ...valuesToCrossOff)
+      setConstraints(list, cellIndices[0], [n])
     }
-    // push constraint: adjacent is 1, next is 2... to n
+
+    // if the clue is n
+    // set constraint: adjacent is 1, next is 2 ... last is n
     else if (clue === n) {
-      let indices = getListOfAdjacentsFromClueIndex(clueIndex, n)
-      indices.forEach((indexValue, i) => {
-        let values0toN = Array.from({length: n}, (c, i) => i + 1)
-        let valuesToCrossOff = values0toN.filter(c => c !== i + 1)
-        list = crossOff(list, indexValue, ...valuesToCrossOff)
+      cellIndices.forEach((cellIndexValue, i) => {
+        setConstraints(list, cellIndexValue, [i + 1])
       })
     }
-    //
+
+    // if clue is between 2 and n - 1
+    // set constraint: for clue n - k, where c is distance of cell from edge,
+    // exclude all from 1 to k + c
     else if (clue > 1 && clue < n) {
       let k = n - clue
-      let indices = getListOfAdjacentsFromClueIndex(clueIndex, n)
-      indices.forEach((indexValue, i) => {
-        // i is distance from edge
-        let valuesToNotCrossOff = Array.from({length: k + i + 1}, (c, i) => i + 1)
-        let valuesToCrossOff = Array.from({length: n}, (c, i) => i + 1).filter(x => !valuesToNotCrossOff.includes(x))
-        list = crossOff(list, indexValue, ...valuesToCrossOff)
+      cellIndices.forEach((cellIndexValue, c) => {
+        let valuesToNotCrossOff = range(1, k + c + 1)
+        list = crossOffAllBut(list, cellIndexValue, ...valuesToNotCrossOff)
       })
     }
+
   })
   return list
 }
@@ -184,7 +201,7 @@ function processOfElimination(list) {
     // iterate row/col indices
     for (let rowColIdx = 0; rowColIdx < n; rowColIdx += 1) {
 
-      // sum up appearances of this n value in each row
+      // row
       let rowIndices = Array.from({length: n}, (c, i) => i + (rowColIdx * n))
       let totalNsInRow = rowIndices.reduce((a, idx) =>
         list[idx].includes(nValue) ? a += 1 : a, 0)
@@ -197,7 +214,7 @@ function processOfElimination(list) {
         }
       }
 
-      // sum up appearances of this n value in each row
+      // col
       let indices = Array.from({length: n ** 2}, (x, i) => i)
       let colIndices = indices.filter(i => i % n === rowColIdx)
       let totalNsInCol = colIndices.reduce((a, idx) =>
@@ -404,7 +421,6 @@ function combinatorialClueProcessor(list, clueIndex) {
 // sort the clue indices to help optimize
 function sortClueIndices(clueIndices, list) {
   let n = Math.sqrt(list.length)
-  //console.log('unsorted', clueIndices)
 
   clueIndices.sort((a, b) => {
     let rowIndicesA = getListOfAdjacentsFromClueIndex(a, n)
@@ -415,10 +431,8 @@ function sortClueIndices(clueIndices, list) {
     let rowConstraintsB = rowIndicesB.map(idx => list[idx].slice())
     let totalB = rowConstraintsB.reduce((a, row) => a + row.length, 0)
 
-    //console.log(`clue ${a} : `, totalA)
     return totalA - totalB
   })
-  //console.log('sorted', clueIndices)
   return clueIndices
 }
 
@@ -541,3 +555,12 @@ function solvePuzzle(clues) {
 // demo
 var hard7x7 = [ 3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3 ]
 solvePuzzle(hard7x7)
+
+// easy4x4 = [2, 2, 1, 3, 2, 2, 3, 1, 1, 2, 2, 3, 3, 2, 1, 3]
+// solvePuzzle(easy4x4)
+
+// med6x6 = [ 0, 0, 0, 2, 2, 0,
+//             0, 0, 0, 6, 3, 0,
+//             0, 4, 0, 0, 0, 0,
+//             4, 4, 0, 3, 0, 0];
+// solvePuzzle(easy6x6)

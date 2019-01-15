@@ -47,7 +47,3 @@ n - k clues exclude all from 1 to k + c in cell c from edge
 4 draw out consequences of constraint propagation
 	any cells in which only one value isn't crossed out? DONE
 	any numbers in any row/col for which only one cell has that number uncrossed?
-
-
-****TODO****
-Add constraint propagation for two cells at a time?
