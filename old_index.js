@@ -112,27 +112,27 @@ function getListOfAdjacentsFromClueIndex(index, n) {
   // run for top clues
   if (index < n) {
     let x = index
-    let indices = Array.from({length: n ** 2}, (c, i) => i)
+    let indices = Array.from({length: n ** 2}, (_, i) => i)
     let colIndices = indices.filter(col => col % n === x)
     return colIndices
   }
   // run for right clues
   else if (index >= n && index < 2 * n) {
     let y = index - n
-    let rowIndices = Array.from({length: n}, (c, i) => (n * y) + i )
+    let rowIndices = Array.from({length: n}, (_, i) => (n * y) + i )
     return rowIndices.reverse()
   }
   // run for bottom clues
   else if (index >= 2 * n && index < 3 * n) {
     let x = ((3 * n) - index) - 1
-    let indices = Array.from({length: n ** 2}, (c, i) => i)
+    let indices = Array.from({length: n ** 2}, (_, i) => i)
     let colIndices = indices.filter(col => col % n === x)
     return colIndices.reverse()
   }
   // run for left clues
   else if (index >= 3 * n && index < 4 * n) {
     let y = ((4 * n) - index) - 1
-    let rowIndices = Array.from({length: n}, (c, i) => (y * n) + i)
+    let rowIndices = Array.from({length: n}, (_, i) => (y * n) + i)
     return rowIndices
   }
 }
