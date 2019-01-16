@@ -10,9 +10,9 @@ const constraintListFactory = clues => {
 }
 
 // format the constraint list and print to console
-const printConstraints = list => {
+const printConstraints = (list, clue) => {
   console.log('\n')
-  console.log('CONSTRAINT LIST:')
+  console.log('IDX\tCONSTRAINTS')
   list.forEach((row, idx) => {
     console.log(`${idx}\t[ ${row.join('')} ]`)
   })
@@ -72,14 +72,20 @@ const crossOffAllBut = (list, idx, ...values) => {
   console.assert(list[idx].length > 0, `constraint list ${idx} is empty`)
   return list
 }
+const setConstraints = (list, idx, constraints) => {
+  console.assert(Array.isArray(constraints) === true, 'setConstraints passed a non-array value')
+  list[idx] = constraints
+  console.assert(list[idx].length > 0, `constraint list ${idx} is empty`)
+  return list
+}
 
 // return adjacent cell lists corresponding to a given clue index
-const getListOfAdjacentsFromClueIndex = (index) => {
+const adjacentsFromClueIndex = index => {
   // top clues
   if (index < N) {
     const max = (N * N) - 1
     return inclusiveRange(0, max)
-           .filter(x => x % n === index)
+           .filter(x => x % N === index)
   }
   // right clues
   else if (index >= N && index < 2 * N) {
@@ -103,6 +109,43 @@ const getListOfAdjacentsFromClueIndex = (index) => {
   }
 }
 
+// Push changes to constraints based on the clues
+const clueEdgeConstraints = (list, clues) => {
+  console.log('Parsing clue edge constraints')
+
+  // iterate the clues and handle different cases
+  clues.forEach((clue, clueIndex) => {
+
+    // store indices to the row/col corresponding to clue
+    const cellIndices = adjacentsFromClueIndex(clueIndex)
+
+    // if clue is 1, adjacent is n
+    if (clue === 1) list = setConstraints(list, cellIndices[0], [N])
+
+    // if clue is n, row/col is 1...n
+    if (clue === N) {
+      inclusiveRange(0, N).forEach(i => list = setConstraints(list, cellIndices[i], [i + 1]))
+    }
+
+    // 2 clues eliminate n in adjacent and n-1 in second cell
+    // TEST THIS!!!
+    if (clue === 2) {
+      list = crossOff(list, cellIndices[0], N)
+      list = crossOff(list, cellIndices[1], N - 1)
+    }
+
+    // if clue is between 2 and n - 1:
+    // for clue n - k, where c is distance of cell from edge, exclude all from 1 to k + c
+    if (clue > 1 && clue < N) {
+      const k = N - clue
+      cellIndices.forEach((cellIndexValue, c) => {
+        let valuesToNotCrossOff = inclusiveRange(1, k + c + 1)
+        list = crossOffAllBut(list, cellIndices[c], ...valuesToNotCrossOff)
+      })
+    }
+  })
+  return list
+}
 
 
 
@@ -110,12 +153,9 @@ const getListOfAdjacentsFromClueIndex = (index) => {
 
 // *** SCRATCH *** //
 
-const clues = [
-  3, 3, 2, 1, 2, 2, 3,
-  4, 3, 2, 4, 1, 4, 2,
-  2, 4, 1, 4, 5, 3, 2,
-  3, 1, 4, 2, 5, 2, 3
-]
+const clues7x7 = [ 3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3]
+const clues4x4 = [2, 2, 1, 3, 2, 2, 3, 1, 1, 2, 2, 3, 3, 2, 1, 3]
+
 
 const solvePuzzle = clues => {
   // declare N in global context
@@ -123,12 +163,11 @@ const solvePuzzle = clues => {
 
   // run stuff
   let list = constraintListFactory(clues)
-  crossOff(list, 0, 1, 2, 3, 4, 5, 7)
-  crossOff(list, 9, 1, 2, 3, 4, 5, 6)
+  list = clueEdgeConstraints(list, clues)
   printConstraints(list)
   printBoard(list, clues)
 
 
 
 }
-solvePuzzle(clues)
+solvePuzzle(clues4x4)
