@@ -1,16 +1,17 @@
+/* eslint-disable no-undef */
 'use strict'
 
 // Returns an array, [min, ..., max], inclusive
 const inclusiveRange = (min, max) =>
-  Array.from({length: max - min + 1}, (_, i) => i + min)
+  Array.from({ length: max - min + 1 }, (_, i) => i + min)
 
 // constraint list factory
-const constraintListFactory = clues => {
-  return Array.from({ length: N * N }, (cell) => inclusiveRange(1, N))
+const constraintListFactory = () => {
+  return Array.from({ length: N * N }, () => inclusiveRange(1, N))
 }
 
 // format the constraint list and print to console
-const printConstraints = (list, clue) => {
+const printConstraints = (list) => {
   console.log('\n')
   console.log('IDX\tCONSTRAINTS')
   list.forEach((row, idx) => {
@@ -23,7 +24,9 @@ const idxToX = (idx) => idx % N
 const idxToY = (idx) => Math.floor(idx / N)
 
 // get resolved value of a constraint cell
-const resolveCell = constraint => constraint.length === 1 ? constraint[0] : 0
+const resolveCell = constraint => {
+  return constraint.length === 1 ? constraint[0] : 0
+}
 
 // write value to index of board
 // signature allows calling in reducer
@@ -33,20 +36,22 @@ const writeToBoard = (board, value, index) => {
 }
 
 // creates an empty board
-const boardFactory = () => Array.from({ length: N }, row => Array(N).fill(0))
+const boardFactory = () => Array.from({ length: N }, _ => Array(N).fill(0))
 
 // convert a constraint list to a multidimensional array
 const listToBoard = list => {
   const board = boardFactory()
   return list.map(resolveCell)
-             .reduce(writeToBoard, board)
+    .reduce(writeToBoard, board)
 }
 
 // print a board
 const printBoard = (list, clues) => {
   const board = listToBoard(list)
 
-  const zerosToSpaces = x => x ? x : ' '
+  const zerosToSpaces = x => {
+    return x ? x : ' '
+  }
   const topClues = clues.slice(0, N).map(zerosToSpaces)
   const rightClues = clues.slice(N, 2 * N).map(zerosToSpaces)
   const leftClues = clues.slice(3 * N, 4 * N).map(zerosToSpaces).reverse()
@@ -85,7 +90,7 @@ const adjacentsFromClueIndex = index => {
   if (index < N) {
     const max = (N * N) - 1
     return inclusiveRange(0, max)
-           .filter(x => x % N === index)
+      .filter(x => x % N === index)
   }
   // right clues
   else if (index >= N && index < 2 * N) {
@@ -98,8 +103,8 @@ const adjacentsFromClueIndex = index => {
     const max = (N * N) - 1
     const remainder = ((3 * N) - index) - 1
     return inclusiveRange(0, max)
-           .filter(x => x % N === remainder)
-           .reverse()
+      .filter(x => x % N === remainder)
+      .reverse()
   }
   // left clues
   else if (index >= 3 * N && index < 4 * N) {
@@ -124,7 +129,9 @@ const clueEdgeConstraints = (list, clues) => {
 
     // if clue is n, row/col is 1...n
     if (clue === N) {
-      inclusiveRange(0, N).forEach(i => list = setConstraints(list, cellIndices[i], [i + 1]))
+      inclusiveRange(0, N).forEach(i => {
+        list = setConstraints(list, cellIndices[i], [i + 1])
+      })
     }
 
     // 2 clues eliminate n in adjacent and n-1 in second cell
@@ -138,7 +145,7 @@ const clueEdgeConstraints = (list, clues) => {
     // for clue n - k, where c is distance of cell from edge, exclude all from 1 to k + c
     if (clue > 1 && clue < N) {
       const k = N - clue
-      cellIndices.forEach((cellIndexValue, c) => {
+      cellIndices.forEach((_, c) => {
         let valuesToNotCrossOff = inclusiveRange(1, k + c + 1)
         list = crossOffAllBut(list, cellIndices[c], ...valuesToNotCrossOff)
       })
@@ -148,12 +155,9 @@ const clueEdgeConstraints = (list, clues) => {
 }
 
 
-
-
-
 // *** SCRATCH *** //
 
-const clues7x7 = [ 3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3]
+const clues7x7 = [3, 3, 2, 1, 2, 2, 3, 4, 3, 2, 4, 1, 4, 2, 2, 4, 1, 4, 5, 3, 2, 3, 1, 4, 2, 5, 2, 3]
 const clues4x4 = [2, 2, 1, 3, 2, 2, 3, 1, 1, 2, 2, 3, 3, 2, 1, 3]
 
 
@@ -166,7 +170,6 @@ const solvePuzzle = clues => {
   list = clueEdgeConstraints(list, clues)
   printConstraints(list)
   printBoard(list, clues)
-
 
 
 }
