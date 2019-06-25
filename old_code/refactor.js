@@ -3,11 +3,11 @@
 
 // Returns an array, [min, ..., max], inclusive
 const inclusiveRange = (min, max) =>
-  Array.from({length: max - min + 1}, (_, i) => i + min);
+  Array.from({ length: max - min + 1 }, (_, i) => i + min);
 
 // constraint list factory
 const constraintListFactory = () => {
-  return Array.from({length: N * N}, () => inclusiveRange(1, N));
+  return Array.from({ length: N * N }, () => inclusiveRange(1, N));
 };
 
 // format the constraint list and print to console
@@ -36,7 +36,7 @@ const writeToBoard = (board, value, index) => {
 };
 
 // creates an empty board
-const boardFactory = () => Array.from({length: N}, _ => Array(N).fill(0));
+const boardFactory = () => Array.from({ length: N }, _ => Array(N).fill(0));
 
 // convert a constraint list to a multidimensional array
 const listToBoard = list => {
