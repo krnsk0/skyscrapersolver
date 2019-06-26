@@ -20,15 +20,13 @@ Let's begin with these forms of inference.
 
 2. **Resolved cell constraint propagation** allows players, once a the value of a cell has been determined, to rule out that value for all cells in the resolved cell's row and column.
 
-3. **Cell-based process of elimination** (or PoE) allows players to resolve cells when all but one value has been eliminated in a given cell's constraint list.
+3. **Process of Elimination** resolves a cell to a value when it is the only cell in a given row or column for whom said value has not been eliminated.
 
-4. **Row/Column PoE** resolves a cell to a value when it is the only cell in a given row or column for whom said value has not been eliminated.
+4. Finally, **Clue Elimination** allows players to look back at the clues, having performed 1 and iterated through some rounds of 2 through 4, to look back at clues to rule out values and resolve additional cells.
 
-5. Finally, **Clue Elimination** allows players to look back at the clues, having performed 1 and iterated through some rounds of 2 through 4, to look back at clues to rule out values and resolve additional cells.
+Beginner players often start by learning to apply edge clue initialization, resolved cell constraint propagation, and process of elimination. Skilled players, in addition to an acquired mastery of these inferential techniques, are marked by two further characteristics: grasp of a sizable repertoire of patterns which allow rapid application of clue elimination, and a good "feel" for the order in which to iteratively apply techniques 2-4 to quickly solve a puzzle.
 
-Beginner players often start by learning to apply edge clue initialization, constraint propagation, and process of elimination. Skilled players, in addition to an acquired mastery of these, are marked by two further characteristics: grasp of a sizable repertoire of patterns which allow rapid application of clue elimination, and a good "feel" for the order in which to apply techniques 2-4 to quickly solve a puzzle.
-
-The code we build up won't be able to model everything a sophisticated organic neural network brings to skyscraper game using constraint propagation, but we'll get close. We'll alternate between describing these forms of inference and implementing them in code, starting with edge clue initialization.
+The code we build up won't be able to model everything a sophisticated organic neural network brings to the skyscraper puzzle, but we'll get close. We'll alternate between describing these forms of inference and implementing them in code, starting with edge clue initialization.
 
 ## Edge Clue Initialization: Approach
 
@@ -117,15 +115,13 @@ While clues between 1 and N don't let us resolve cells, they do allow us to rule
   </tbody>
 </table>
 
-In general, this rule can be expressed as follows. For clues `c` where `1 < c < N`, where `d` is the distance from the edge counting from zero, we can cross off all values from `N - c + 2 + d` up to `N`, inclusive.
+In general, this rule can be expressed as follows. On an `N * N` board, for clues `c` where `1 < c < N`, where `d` is the distance from the edge counting from zero, we can cross off all values from `N - c + 2 + d` up to `N`, inclusive.
 
-Given the above example, let's calculate what to cross off for the second cell over from our 5 clue. We're 1 cell from the edge, which is `d`; we know `c` is 5; and, we're on a 5x5 board, so `N` is 5. Therefore, `N - c + 2 + d` is 3. So we can cross off all values from 3 to 5, inclusive, for this cell.
-
-Call this the **edge constraint rule**. I won't walk through how it can be derived or proven, here, but trust me that it works.
+Given the above example, let's calculate what to cross off for the second cell over from our 5 clue. We're 1 cell from the edge, which is `d`; we know `c` is 5; and, we're on a 5x5 board, so `N` is 5. Therefore, `N - c + 2 + d` is 3. So we can cross off all values from 3 to 5, inclusive, for this cell. Call this the **edge constraint rule**. I won't walk through how it can be derived or proven, here, but trust me that it works.
 
 ## First Steps
 
-We'll need a data structure to represent the current state of our knowledge of possibilities for a cell. Arrays would work fine, but Javascript's Set object gets us `.delete()`, which will sweeten syntax later. Let's call our structure a **constraint list**.
+We'll need a data structure to represent the current state of our knowledge of possibilities for a cell. Arrays would work fine, but Javascript's Set object gets us some nice built-ins which will sweeten our syntax later. Let's call this structure representing possibilities for a cell a **constraint list**.
 
 ```javascript
 const constraintListFactory = N => {
@@ -133,7 +129,7 @@ const constraintListFactory = N => {
 };
 ```
 
-How to store the state of our knowledge of possibilities for the entire board? We could use an NxN multidimensional array, but operations involving iteration will be simpler with an array of length N^2.
+How to store our knowledge of possibilities for the entire board? We could use an NxN multidimensional array, but operations that involve iterating the board will be simpler with an array of length `N^2`.
 
 ```javascript
 const boardFactory = N => {
@@ -237,7 +233,7 @@ Let's start laying down some top-level infrastructure. We'll need a `solveSkyscr
 
 How should we store and pass around our state? It would certainly be convenient to keep our board, clues, the value of `N`, and so on as globals rather than passing them in to our functions-- or at least convenient to keep them in the scope of our "top-level" solver function such that they don't need to be passed around.
 
-We won't be writing concurrent or asynchronous code, and won't at least for these reasons need to bother ourselves with functional purity. But, once we get to the point where we need backtracking recursion, we'll need to avoid state-mutation, as the book-keeping to roll back mutations after a backtrack would be prohibitive. So some functions can mutate--those not involved in backtracking recursion--and others cannot; we'll have to pay close attention to this distinction as we proceed.
+We won't be writing concurrent or asynchronous code, and won't at least for these reasons need to bother ourselves with functional purity. But, once we get to the point where we need backtracking recursion, we'll need to avoid mutating state in the enclosing scope, as the book-keeping to roll back mutations after a backtrack would be prohibitively complex. So we'll write some functions that can mutate--those not involved in backtracking recursion--and others which cannot; we'll have to pay close attention to this distinction as we proceed.
 
 In any case, to avoid having to pass too many extra arguments into our functions, let's condense our state into an object:
 
@@ -261,12 +257,10 @@ Storing `N` in our state object lets us avoid having to repeat `Math.sqrt()` all
 
 ## Edge Clue Initialization: Code
 
-To perform edge clue initialization, we'll need to iterate our clues, get the corresponding row and column indices, and cross of values based on the general form of our edge constraint rule.
-
-Let's combine what we've written so far, starting for `1 < c < N`:
+To perform edge clue initialization, we'll need to iterate our clues, get the corresponding row and column indices, and cross of values based on the general form of our edge constraint rule. Let's combine what we've written so far, starting for `1 < c < N`:
 
 ```js
-const performEdgeClueInitialization = originalState => {
+const performEdgeClueInitialization = state => {
   // mutates cell!
   const constrainCellWithClue = (cell, c, distance) => {
     const minimum = state.N - c + 2 + distance;
@@ -277,29 +271,34 @@ const performEdgeClueInitialization = originalState => {
 
   state.clues.forEach((c, clueIndex) => {
     // get some cells
-    const constraintLists = getCellIndicesFromClueIndex(clueIndex, state.N).map(
-      cellIndex => state.board[cellIndex]
-    );
+    const cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
 
     // apply the edge constraint rule
     if (1 < c && c < state.N) {
-      constraintLists.forEach((cell, distance) => {
+      cellIndices.forEach((cellIndex, distance) => {
+        const cell = state.board[cellIndex];
         constrainCellWithClue(cell, c, distance);
       });
     }
     // resolve the first cell to N when the clue is 1
     else if (c === 1) {
-      // todo
+      const cell = state.board[cellIndices[0]];
+      cell.clear();
+      cell.add(state.N);
     }
     // resolve the entire row when the clue is N
     else if (c === state.N) {
-      // todo
+      cellIndices.forEach((cellIndex, distance) => {
+        const cell = state.board[cellIndex];
+        cell.clear();
+        cell.add(distance + 1);
+      });
     }
   });
 };
 ```
 
-First we define a helper, then iterate all of the clues, for each clue getting its constraint lists in the proper order, then apply the helper to eliminate values ruled out by that clue. We don't need to deep clone or return our state object, here-- it's okay to mutate objects in the enclosing scope because we'll only initialize from edge clues once, and won't need to involve this code in recursion, later.
+First we define a helper, then iterate all of the clues, transforming our array of indices into an array of constraint lists using `.map()`. Then we apply the helper function to eliminate values ruled out by the clue in question. We don't need to deep clone or return our state object, here-- it's okay to mutate objects in the enclosing scope because we'll only initialize from edge clues once, and won't need to involve this code in recursion, later.
 
 Now to go back and handle the special cases, `c === 1` and `c === N`, which allow us to completely resolve a cell and an entire row/column, respectively:
 
@@ -421,4 +420,28 @@ const propagateConstraints = state => {
 };
 ```
 
-This works fine for handling any cells that were resolved by the edge clue constraints, but what if propagating constraints from a resolved cell results in the resolution of other cells?
+This works fine for handling any cells that were resolved by the edge clue constraints, but what if propagating constraints from a resolved cell results in new resolved cells--that is, cells with only only one value not crossed off--such that we would want to in turn propagate constraints from these cells?
+
+We could just call `propagateConstraints` repeatedly until we notice that nothing changes from one iteration to the next, checking every cell each time for for `cell.size === 1`. But this is a lot of extra work since most cells won't have changed. Instead, let's check cell size right after modifying a cell in `propagateConstraintsFromCell`, which ensures we only check cells that have changed.
+
+When we find that a cell which has just changed has size 1, how should we initiate constraint propagation for it? We could recursively call `propagateConstraintsFromCell`, but this could in some circumstances lead to code that's very difficult to step through, as our algorithm "chases" changes around the board. It will be easier to reason about a "breadth first" approach in which each propagation operation finishes before the next starts. To do this, let's add a `queue` key to our state which holds an array and set up propagateConstraints to make use of it. Inside `propagateConstraintsFromCell`:
+
+```js
+crossIndices.forEach(crossIndex => {
+  const cell = state.board[crossIndex];
+  cell.delete(valueToEliminate);
+  if (cell.size === 1) {
+    state.queue.push(crossIndex);
+  }
+});
+```
+
+Inside `propagateConstraints`, let's add a while block after we iterate the board:
+
+```js
+while (state.queue.length) {
+  propagateConstraintsFromCell(state, state.queue.shift());
+}
+```
+
+Having established this pattern, why bother iterating the board at all to check for `cell.size === 1` inside of `propagateConstraints`? We can add a size check and and enqueue operation to our edge constraint functions-- in particular, to `constrainCellWithClue`:

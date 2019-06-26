@@ -36051,7 +36051,8 @@ var initializeState = function initializeState(clues) {
   return {
     N: Math.sqrt(clues.length),
     board: boardFactory(Math.sqrt(clues.length)),
-    clues: clues
+    clues: clues,
+    queue: []
   };
 };
 
@@ -36067,24 +36068,25 @@ var performEdgeClueInitialization = function performEdgeClueInitialization(state
 
   state.clues.forEach(function (c, clueIndex) {
     // get some cells
-    var constraintLists = getCellIndicesFromClueIndex(clueIndex, state.N).map(function (cellIndex) {
-      return state.board[cellIndex];
-    });
+    var cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
 
     // apply the edge constraint rule
     if (1 < c && c < state.N) {
-      constraintLists.forEach(function (cell, distance) {
+      cellIndices.forEach(function (cellIndex, distance) {
+        var cell = state.board[cellIndex];
         constrainCellWithClue(cell, c, distance);
       });
     }
     // resolve the first cell to N when the clue is 1
     else if (c === 1) {
-        constraintLists[0].clear();
-        constraintLists[0].add(state.N);
+        var cell = state.board[cellIndices[0]];
+        cell.clear();
+        cell.add(state.N);
       }
       // resolve the entire row when the clue is N
       else if (c === state.N) {
-          constraintLists.forEach(function (cell, distance) {
+          cellIndices.forEach(function (cellIndex, distance) {
+            var cell = state.board[cellIndex];
             cell.clear();
             cell.add(distance + 1);
           });
@@ -36109,16 +36111,24 @@ var propagateConstraintsFromCell = function propagateConstraintsFromCell(state, 
   var valueToEliminate = list.values().next().value;
   var crossIndices = getCrossIndicesFromCell(state, cellIndex);
   crossIndices.forEach(function (crossIndex) {
-    state.board[crossIndex].delete(valueToEliminate);
+    var cell = state.board[crossIndex];
+    cell.delete(valueToEliminate);
+    if (cell.size === 1) {
+      state.queue.push(crossIndex);
+    }
   });
 };
 
 var propagateConstraints = function propagateConstraints(state) {
-  state.board.forEach(function (cell, cellIndex) {
-    if (cell.size === 1) {
-      propagateConstraintsFromCell(state, cellIndex);
-    }
-  });
+  // state.board.forEach((cell, cellIndex) => {
+  //   if (cell.size === 1) {
+  //     propagateConstraintsFromCell(state, cellIndex);
+  //   }
+  // });
+
+  while (state.queue.length) {
+    propagateConstraintsFromCell(state, state.queue.shift());
+  }
 };
 
 var solveSkyscraper = function solveSkyscraper(clues) {
