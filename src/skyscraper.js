@@ -1,4 +1,4 @@
-const cloneDeep = require('lodash/cloneDeep');
+// import cloneDeep from 'lodash/cloneDeep';
 
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
@@ -111,22 +111,12 @@ const propagateConstraints = state => {
   });
 };
 
-// ********* MAIN ***********
-
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-
   propagateConstraints(state);
 
-  console.log('state: ', state);
-
-  return [];
+  return state;
 };
 
-// ********* RUN ***********
-
-const clues = [1, 0, 0, 2, 0, 3, 0, 0, 0, 2, 0, 0, 2, 3, 0, 0];
-// const clues = [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-const result = solveSkyscraper(clues);
-console.log('result: ', result);
+export default solveSkyscraper;
