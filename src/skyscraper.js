@@ -45,13 +45,21 @@ const initializeState = clues => {
   };
 };
 
+// mutates state.queue
+const enqueueCellIfResolved = (state, cellIndex) => {
+  if (state.board[cellIndex].size === 1) {
+    state.queue.push(cellIndex);
+  }
+};
+
 // mutates state!
 const performEdgeClueInitialization = state => {
   // mutates cell!
-  const constrainCellWithClue = (cell, c, distance) => {
+  const constrainCellWithClue = (cell, c, distance, cellIndex) => {
     const minimum = state.N - c + 2 + distance;
     for (let i = minimum; i <= state.N; i += 1) {
       cell.delete(i);
+      enqueueCellIfResolved(state, cellIndex);
     }
   };
 
@@ -63,7 +71,7 @@ const performEdgeClueInitialization = state => {
     if (1 < c && c < state.N) {
       cellIndices.forEach((cellIndex, distance) => {
         const cell = state.board[cellIndex];
-        constrainCellWithClue(cell, c, distance);
+        constrainCellWithClue(cell, c, distance, cellIndex);
       });
     }
     // resolve the first cell to N when the clue is 1
@@ -71,6 +79,7 @@ const performEdgeClueInitialization = state => {
       const cell = state.board[cellIndices[0]];
       cell.clear();
       cell.add(state.N);
+      enqueueCellIfResolved(state, cellIndices[0]);
     }
     // resolve the entire row when the clue is N
     else if (c === state.N) {
@@ -78,6 +87,7 @@ const performEdgeClueInitialization = state => {
         const cell = state.board[cellIndex];
         cell.clear();
         cell.add(distance + 1);
+        enqueueCellIfResolved(state, cellIndex);
       });
     }
   });
@@ -103,9 +113,7 @@ const propagateConstraintsFromCell = (state, cellIndex) => {
   crossIndices.forEach(crossIndex => {
     const cell = state.board[crossIndex];
     cell.delete(valueToEliminate);
-    if (cell.size === 1) {
-      state.queue.push(crossIndex);
-    }
+    enqueueCellIfResolved(state, crossIndex);
   });
 };
 

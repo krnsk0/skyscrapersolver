@@ -36056,13 +36056,21 @@ var initializeState = function initializeState(clues) {
   };
 };
 
+// mutates state.queue
+var enqueueCellIfResolved = function enqueueCellIfResolved(state, cellIndex) {
+  if (state.board[cellIndex].size === 1) {
+    state.queue.push(cellIndex);
+  }
+};
+
 // mutates state!
 var performEdgeClueInitialization = function performEdgeClueInitialization(state) {
   // mutates cell!
-  var constrainCellWithClue = function constrainCellWithClue(cell, c, distance) {
+  var constrainCellWithClue = function constrainCellWithClue(cell, c, distance, cellIndex) {
     var minimum = state.N - c + 2 + distance;
     for (var i = minimum; i <= state.N; i += 1) {
       cell.delete(i);
+      enqueueCellIfResolved(state, cellIndex);
     }
   };
 
@@ -36074,7 +36082,7 @@ var performEdgeClueInitialization = function performEdgeClueInitialization(state
     if (1 < c && c < state.N) {
       cellIndices.forEach(function (cellIndex, distance) {
         var cell = state.board[cellIndex];
-        constrainCellWithClue(cell, c, distance);
+        constrainCellWithClue(cell, c, distance, cellIndex);
       });
     }
     // resolve the first cell to N when the clue is 1
@@ -36082,6 +36090,7 @@ var performEdgeClueInitialization = function performEdgeClueInitialization(state
         var cell = state.board[cellIndices[0]];
         cell.clear();
         cell.add(state.N);
+        enqueueCellIfResolved(state, cellIndices[0]);
       }
       // resolve the entire row when the clue is N
       else if (c === state.N) {
@@ -36089,6 +36098,7 @@ var performEdgeClueInitialization = function performEdgeClueInitialization(state
             var cell = state.board[cellIndex];
             cell.clear();
             cell.add(distance + 1);
+            enqueueCellIfResolved(state, cellIndex);
           });
         }
   });
@@ -36113,9 +36123,7 @@ var propagateConstraintsFromCell = function propagateConstraintsFromCell(state, 
   crossIndices.forEach(function (crossIndex) {
     var cell = state.board[crossIndex];
     cell.delete(valueToEliminate);
-    if (cell.size === 1) {
-      state.queue.push(crossIndex);
-    }
+    enqueueCellIfResolved(state, crossIndex);
   });
 };
 
