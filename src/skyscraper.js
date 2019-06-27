@@ -58,7 +58,10 @@ const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
     const cell = state.board[idxToConstrain];
     let mutated = cell.delete(valueToDelete);
     if (mutated && cell.size === 1) {
-      state.queue.push(idxToConstrain);
+      state.queue.push({
+        type: 'PROPAGATE_CONTSTRAINTS_FROM',
+        cellIndex: idxToConstrain
+      });
     } else if (cell.size === 0) {
       throw new Error(`cell ${idxToConstrain} is empty`);
     }
@@ -131,20 +134,74 @@ const propagateFromResolvedCell = (state, cellIndex) => {
   });
 };
 
-const propagateConstraints = state => {
+const queueProcessor = state => {
   while (state.queue.length) {
-    propagateFromResolvedCell(state, state.queue.shift());
+    const action = state.queue.shift();
+    if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
+      propagateFromResolvedCell(state, action.cellIndex);
+    }
   }
 };
 
-// when we cross out a number, check both its row and column to see if any other cells in row or column, respectively, have ONLY this value left. then enqueue an operation to resolve those cells to that value
+const getRowIndicesFromCellIndex = (state, cellIndex) => {
+  const y = Math.floor(cellIndex / state.N);
+  return [...getCellIndicesFromRowIndex(y, state.N)].filter(
+    idx => idx !== cellIndex
+  );
+};
+
+const getColIndicesFromCellIndex = (state, cellIndex) => {
+  const x = cellIndex % state.N;
+  return [...getCellIndicesFromColIndex(x, state.N)].filter(
+    idx => idx !== cellIndex
+  );
+};
+
+const filterResolvedCells = (state, cellIndices) => {
+  return cellIndices.filter(cellIndex => state.board[cellIndex].size !== 1);
+};
+
+const countValueInCells = (state, cellIndices, valueToCount) => {
+  return cellIndices.reduce((count, cellIndex) => {
+    return count + state.board[cellIndex].has(valueToCount) ? 1 : 0;
+  }, 0);
+};
+
+const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
+  return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
+};
+
+const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
+  // row
+  const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
+  const resolvedRowIndices = filterResolvedCells(state, rowIndices);
+  const rowDeletedValueCount = countValueInCells(state, resolvedRowIndices);
+
+  // col
+  const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
+  const resolvedColIndices = filterResolvedCells(state, colIndices);
+  const colDeletedValueCount = countValueInCells(state, resolvedColIndices);
+
+  const results = [];
+  if (rowDeletedValueCount === 1) {
+    results.push(
+      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+    );
+  }
+  if (colDeletedValueCount === 1) {
+    results.push(
+      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+    );
+  }
+  return results;
+};
 
 // *** MAIN ***
 
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-  propagateConstraints(state);
+  queueProcessor(state);
 
   return state;
 };

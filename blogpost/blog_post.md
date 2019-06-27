@@ -6,6 +6,8 @@ Taller skyscrapers block the visibility of shorter skyscrapers, but not vice ver
 
 This article walks through the use of [constraint propagation](https://en.wikipedia.org/wiki/Constraint_satisfaction), a technique dating to the era of [symbolic AI](https://en.wikipedia.org/wiki/Symbolic_artificial_intelligence), to model the inferential techniques employed by skyscraper enthusiasts. While building up a vocabulary of concepts to help us reason about the puzzle, we'll 'll use Javascript to also build up, first, an algorithm capable of solving _published_ puzzles of arbitrary size and difficulty without resorting to backtracking, and later build in backtracking to allow us to solve _all_ possible Skyscraper puzzles, full-stop.
 
+We'll be building a solution piece by piece; if you want to refer to the finished product as you read, it can be found [here]().
+
 ## Approach
 
 Why the caveat that we'll only at first be able to solve _published_ puzzles?
@@ -477,7 +479,7 @@ while (state.queue.length) {
 }
 ```
 
-Having established this pattern, why bother having `propagateConstraints` iterate the board at all to check for `cell.size === 1`? We could add a size check and and enqueue operation to `performEdgeClueInitialization`, and have `propagateConstraints` be driven solely by the queue. But, we'd have to perform this size check for all three cases for `c` in `performEdgeClueInitialization`, each of which use slightly different methods to alter constraint lists. We need an abstraction like a [facade](https://en.wikipedia.org/wiki/Facade_pattern) or [proxy](https://en.wikipedia.org/wiki/Proxy_pattern) around all of these methods versatile enough to handle not only the ways we modify constraint lists in the edge clue functions but also, hopefully, ways we might modify constraint lists in the future-- as we'll want to make sure we propagate constraints every time they change.
+Having established this pattern, why bother having `propagateConstraints` iterate the board at all to check for `cell.size === 1`? We could add a size check and and enqueue operation to `performEdgeClueInitialization`, and have `propagateConstraints` be driven solely by the queue. But, we'd have to perform this size check for all three cases for `c` in `performEdgeClueInitialization`, each of which use slightly different methods to alter constraint lists. We need an abstraction around all of these methods versatile enough to handle not only the ways we modify constraint lists in the edge clue functions but also, hopefully, ways we might modify constraint lists in the future-- as we'll want to make sure we propagate constraints every time they change.
 
 How to approach this? So far, we've used `Set.prototype.delete()` to eliminate individual values from cells, but have also used `.clear()` followed by `.add()` to quickly resolve a cell with multiple values in its constraint list to just a single value. This suggests two basic use cases: deleting a value, and deleting everything but a value. Since the latter is reducible to repeated applications of the former, let's treat `.delete()` as primitive; we'll first write an abstraction around it which also checks for `cell.size === 1` and enqueues after a successful delete, and then wrap this in a secondary abstraction which transforms cell resolutions into repeated applications of our delete abstraction. Here's what it looks like:
 
@@ -551,6 +553,101 @@ For instance, in the example we've been working with, the absence of a 4 in all 
   </tbody>
 </table>
 
-How to implement PoE? We don't want to replicate the design we optimized away, above, in which we iteratively search the entire board for some pattern or criteria-- we want to call PoE function right after we mutate cells.
+How to implement PoE? We don't want to replicate the design we optimized away, above, in which we iteratively searched the entire board for some pattern or criteria-- we want to call PoE function right after we mutate our data, which will make sure we run PoE all and only when necessary. Described from the top-down, we'll need a function which:
 
-In this context, we'll know what value
+1. Takes in a value that's just been crossed off a constraint list for a given cell
+2. Gets the row indices for the cell we modified
+3. Checks to see if for all other cells in that row which are non-resolved, the value just crossed off appears just once
+4. If so, resolves the cell where the value appears
+5. Repeats steps (2) -(4) for the column, instead of the row.
+
+Building from the inside out, let's start with some helpers to get the row/column indices for a cellIndex, sans the cellIndex.
+
+```js
+const getRowIndicesFromCellIndex = (state, cellIndex) => {
+  const y = Math.floor(cellIndex / state.N);
+  return [...getCellIndicesFromRowIndex(y, state.N)].filter(
+    idx => idx !== cellIndex
+  );
+};
+
+const getColIndicesFromCellIndex = (state, cellIndex) => {
+  const x = cellIndex % state.N;
+  return [...getCellIndicesFromColIndex(x, state.N)].filter(
+    idx => idx !== cellIndex
+  );
+};
+```
+
+Next, we'll need to filter out resolved cells, and then count the number of times a given value appears in an array of cell indices:
+
+```js
+const filterResolvedCells = (state, cellIndices) => {
+  return cellIndices.filter(cellIndex => state.board[cellIndex].size !== 1);
+};
+
+const countValueInCells = (state, cellIndices, valueToCount) => {
+  return cellIndices.reduce((count, cellIndex) => {
+    return count + state.board[cellIndex].has(valueToCount) ? 1 : 0;
+  }, 0);
+};
+```
+
+Whenever `countValueInCells` returns 1, we'll need to get the index of the cell where the value appears; here's one more helper:
+
+```js
+const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
+  return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
+};
+```
+
+Finally, let's wire everything up:
+
+```js
+const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
+  return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
+};
+
+const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
+  // row
+  const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
+  const resolvedRowIndices = filterResolvedCells(state, rowIndices);
+  const rowDeletedValueCount = countValueInCells(state, resolvedRowIndices);
+
+  // col
+  const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
+  const resolvedColIndices = filterResolvedCells(state, colIndices);
+  const colDeletedValueCount = countValueInCells(state, resolvedColIndices);
+
+  const results = [];
+  if (rowDeletedValueCount === 1) {
+    results.push(
+      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+    );
+  }
+  if (colDeletedValueCount === 1) {
+    results.push(
+      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+    );
+  }
+  return results;
+};
+```
+
+Here we're returning an array of cell indices which are resolvable to the `deletedValue` passed in to `poeCellSearch`. All we'll need to do next after calling `poeCellSearch` is iterate this array, resolving the cell pointed to by each index.
+
+But here we run in to a problem. We want to run PoE search inside `constrainAndEnqueue`, the abstraction we wrapped around `Set.prototype.delete()` for our constraint lists. But PoE will need to call `constrainAndEnqueue` so that we properly draw out consequences from cells resolved through PoE, which again can put us in the position of "chasing" changes around the board with an increasingly deep call stack-- which will make debugging challenging.
+
+We need to interrupt this potential runaway chain of function calls by having our PoE functions push work to the queue. Right now `poeCellSearch` returns an array of cells to resolve; perhaps we could queue up the indices in this array as well as the values to which they need to be resolved. But this is a different _kind of thing_ than what currently lives in `state.queue`, which, right now, is a list of newly-resolved cell indices from which constraints need to be propagated.
+
+That is: `state.queue` is currently used to schedule future _post-cell-mutation_ work; what we're now talking about queueing is _cell mutation_, itself. We could create separate queues for these types of work, and empty them out each in sequence in the `while` block in `propagateConstraints`, but in some cases this may lead to queued work being performed in a different than what we might expect, leading again to debugging challenges.
+
+Let's instead implement something like the [command pattern](https://en.wikipedia.org/wiki/Command_pattern), familiar to you if you've ever used Dan Abramov's Redux. We'll use one queue, but pass in objects which tell `propagateConstraints` what kind of work to perform. We'll start by renaming `propagateConstraints`, which now does more than this; let's call it `queueProcessor`.
+
+Next, we'll modify in `constrainAndEnqueue` pass an object into the queue with a `type` property, where previously we'd just passed in a cell index:
+
+```js
+if (mutated && cell.size === 1) {
+  state.queue.push({ type: 'PROPAGATE_CONTSTRAINTS_FROM', idxToConstrain });
+}
+```
