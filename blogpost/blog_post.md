@@ -492,3 +492,38 @@ const enqueueCellIfResolved = (state, cellIndex) => {
 We can then call this function after modifying constraint lists inside `constrainCellWithClue`, `performEdgeClueInitialization`, `propagateConstraintsFromCell`, and in the future anywhere else we edit the contents of cells.
 
 What do we have so far? Our code is now set up to make inferences from edge clues, and repeatedly propagate constraints from resolved cells, drawing out all possible consequences from these two methods in combination. Let's add a new form of inference to our toolbox.
+
+## Process of Elimination
+
+Process of elimination allows the player to resolve a cell to a value when that value is no longer present in any other cells in either that cell's row or it's column. That is: if a given cell's constraint list shows a 4 as a possibility for itself, but no other cells show a four in either its row or its column (or both-- it's an inclusive or), we know that cell _must_ be the 4, for its row and column. For instance, in the example we've been working with, the absence of a 4 in all cells of column three except the third allows us to resolve that cell to 4:
+
+<table style="margin: 5px auto; font-family: monospace; text-align: center;">
+  <tbody>
+    <tr>
+      <td style="border: 1px solid; width: 1em;">4</td>
+      <td style="border: 1px solid; width: 1em;">123</td>
+      <td style="border: 1px solid; width: 1em; background-color: grey;">123</td>
+      <td style="border: 1px solid; width: 1em;">123</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid; width: 1em;">1234</td>
+      <td style="border: 1px solid; width: 1em;">1234</td>
+      <td style="border: 1px solid; width: 1em; background-color: grey;">123</td>
+      <td style="border: 1px solid; width: 1em;">12</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid; width: 1em;">12</td>
+      <td style="border: 1px solid; width: 1em;">123</td>
+      <td style="border: 1px solid; width: 1em; background-color: grey;">123<span style="border: 1px solid; padding: 2px">4</span></td>
+      <td style="border: 1px solid; width: 1em;">1234</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid; width: 1em;">123</td>
+      <td style="border: 1px solid; width: 1em;">1234</td>
+      <td style="border: 1px solid; width: 1em;background-color: grey;">123</td>
+      <td style="border: 1px solid; width: 1em;">1234</td>
+    </tr>
+  </tbody>
+</table>
+
+How to implement this? We don't want to replicate the pattern we optimized away, above, in which we iteratively search the entire board for cells which meet process-of-elimination criteria-- we want to call PoE function right after we update a cell. In this context, we'll know what value

@@ -93,7 +93,7 @@ const performEdgeClueInitialization = state => {
   });
 };
 
-const getCrossIndicesFromCell = (state, cellIndex) => {
+const getCrossIndicesFromCellIndex = (state, cellIndex) => {
   const x = cellIndex % state.N;
   const y = Math.floor(cellIndex / state.N);
   return [
@@ -109,7 +109,7 @@ const propagateConstraintsFromCell = (state, cellIndex) => {
     throw new Error('propagate constraints called on a non-resolved cell');
   }
   const valueToEliminate = list.values().next().value;
-  const crossIndices = getCrossIndicesFromCell(state, cellIndex);
+  const crossIndices = getCrossIndicesFromCellIndex(state, cellIndex);
   crossIndices.forEach(crossIndex => {
     const cell = state.board[crossIndex];
     cell.delete(valueToEliminate);
@@ -118,12 +118,6 @@ const propagateConstraintsFromCell = (state, cellIndex) => {
 };
 
 const propagateConstraints = state => {
-  // state.board.forEach((cell, cellIndex) => {
-  //   if (cell.size === 1) {
-  //     propagateConstraintsFromCell(state, cellIndex);
-  //   }
-  // });
-
   while (state.queue.length) {
     propagateConstraintsFromCell(state, state.queue.shift());
   }
