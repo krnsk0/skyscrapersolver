@@ -46,9 +46,32 @@ const initializeState = clues => {
 };
 
 // mutates state.queue
-const enqueueCellIfResolved = (state, cellIndex) => {
-  if (state.board[cellIndex].size === 1) {
-    state.queue.push(cellIndex);
+// mutates state.board.cellIndex
+const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
+  console.assert(
+    // eslint-disable-next-line eqeqeq
+    !deleteValue != !resolveValue,
+    'constrainAndEnqueue called with bad arguments'
+  ); // XOR check
+
+  const constrain = (idxToConstrain, valueToDelete) => {
+    const cell = state.board[idxToConstrain];
+    let mutated = cell.delete(valueToDelete);
+    if (mutated && cell.size === 1) {
+      state.queue.push(idxToConstrain);
+    } else if (cell.size === 0) {
+      throw new Error(`cell ${idxToConstrain} is empty`);
+    }
+  };
+
+  if (deleteValue) {
+    constrain(cellIndex, deleteValue);
+  } else {
+    for (let value of state.board[cellIndex]) {
+      if (value !== resolveValue) {
+        constrain(cellIndex, value);
+      }
+    }
   }
 };
 
@@ -58,8 +81,7 @@ const performEdgeClueInitialization = state => {
   const constrainCellWithClue = (cell, c, distance, cellIndex) => {
     const minimum = state.N - c + 2 + distance;
     for (let i = minimum; i <= state.N; i += 1) {
-      cell.delete(i);
-      enqueueCellIfResolved(state, cellIndex);
+      constrainAndEnqueue(state, cellIndex, i);
     }
   };
 
@@ -76,18 +98,12 @@ const performEdgeClueInitialization = state => {
     }
     // resolve the first cell to N when the clue is 1
     else if (c === 1) {
-      const cell = state.board[cellIndices[0]];
-      cell.clear();
-      cell.add(state.N);
-      enqueueCellIfResolved(state, cellIndices[0]);
+      constrainAndEnqueue(state, cellIndices[0], null, state.N);
     }
     // resolve the entire row when the clue is N
     else if (c === state.N) {
       cellIndices.forEach((cellIndex, distance) => {
-        const cell = state.board[cellIndex];
-        cell.clear();
-        cell.add(distance + 1);
-        enqueueCellIfResolved(state, cellIndex);
+        constrainAndEnqueue(state, cellIndex, null, distance + 1);
       });
     }
   });
@@ -103,7 +119,7 @@ const getCrossIndicesFromCellIndex = (state, cellIndex) => {
 };
 
 // mutates state!
-const propagateConstraintsFromCell = (state, cellIndex) => {
+const propagateFromResolvedCell = (state, cellIndex) => {
   let list = state.board[cellIndex];
   if (list.size > 1) {
     throw new Error('propagate constraints called on a non-resolved cell');
@@ -111,17 +127,19 @@ const propagateConstraintsFromCell = (state, cellIndex) => {
   const valueToEliminate = list.values().next().value;
   const crossIndices = getCrossIndicesFromCellIndex(state, cellIndex);
   crossIndices.forEach(crossIndex => {
-    const cell = state.board[crossIndex];
-    cell.delete(valueToEliminate);
-    enqueueCellIfResolved(state, crossIndex);
+    constrainAndEnqueue(state, crossIndex, valueToEliminate);
   });
 };
 
 const propagateConstraints = state => {
   while (state.queue.length) {
-    propagateConstraintsFromCell(state, state.queue.shift());
+    propagateFromResolvedCell(state, state.queue.shift());
   }
 };
+
+// when we cross out a number, check both its row and column to see if any other cells in row or column, respectively, have ONLY this value left. then enqueue an operation to resolve those cells to that value
+
+// *** MAIN ***
 
 const solveSkyscraper = clues => {
   let state = initializeState(clues);

@@ -426,7 +426,7 @@ const getCrossIndicesFromCell = (state, cellIndex) => {
 Next we'll need a function that, when called with a cell index, eliminates the resolved value from the constraint lists referenced by the results of `getCrossIndicesFromCell()`. We'll assume this function always gets called on a constraint list with just one value remaining and throw otherwise, and we'll use iterator syntax to access the remaining value in our set object:
 
 ```js
-const propagateConstraintsFromCell = (originalState, cellIndex) => {
+const propagateFromResolvedCell = (originalState, cellIndex) => {
   let list = state.board[cellIndex];
   if (list.size > 1) {
     throw new Error('propagate constraints called on a non-resolved cell');
@@ -439,13 +439,13 @@ const propagateConstraintsFromCell = (originalState, cellIndex) => {
 };
 ```
 
-How to call this function? After applying the edge constraints, we can iterate our constraint lists and as soon as we find one with only a single element, call `propagateConstraintsFromCell` on it:
+How to call this function? After applying the edge constraints, we can iterate our constraint lists and as soon as we find one with only a single element, call `propagateFromResolvedCell` on it:
 
 ```js
 const propagateConstraints = state => {
   state.board.forEach((cell, cellIndex) => {
     if (cell.size === 1) {
-      propagateConstraintsFromCell(state, cellIndex);
+      propagateFromResolvedCell(state, cellIndex);
     }
   });
 };
@@ -455,9 +455,9 @@ const propagateConstraints = state => {
 
 This works fine for handling any cells that were resolved by the edge clue constraints, but what if propagating constraints from a resolved cell results in new resolved cells--that is, cells with only only one value not crossed off--such that we would want to in turn propagate constraints from these cells?
 
-We could just call `propagateConstraints` repeatedly until we notice that nothing changes from one iteration to the next, checking every cell each time for for `cell.size === 1`. But this is a lot of extra work as most cells won't have changed. Instead, let's check constraint list size right after modifying a cell in `propagateConstraintsFromCell`, which ensures we only check cells that have changed.
+We could just call `propagateConstraints` repeatedly until we notice that nothing changes from one iteration to the next, checking every cell each time for for `cell.size === 1`. But this is a lot of extra work as most cells won't have changed. Instead, let's check constraint list size right after modifying a cell in `propagateFromResolvedCell`, which ensures we only check cells that have changed.
 
-When we find that a cell which has just changed has size 1, how should we initiate constraint propagation for it? We could recursively call `propagateConstraintsFromCell`, but this could in some circumstances lead to code that's very difficult to step through, as our algorithm "chases" changes around the board. It will be easier to reason about a "breadth first" approach in which each propagation operation finishes before the next starts. To do this, let's add a `queue` key to our state which holds an array and set up propagateConstraints to use this queue. Inside `propagateConstraintsFromCell`:
+When we find that a cell which has just changed has size 1, how should we initiate constraint propagation for it? We could recursively call `propagateFromResolvedCell`, but this could in some circumstances lead to code that's very difficult to step through, as our algorithm "chases" changes around the board. It will be easier to reason about a "breadth first" approach in which each propagation operation finishes before the next starts. To do this, let's add a `queue` key to our state which holds an array and set up propagateConstraints to use this queue. Inside `propagateFromResolvedCell`:
 
 ```js
 crossIndices.forEach(crossIndex => {
@@ -473,29 +473,54 @@ Inside `propagateConstraints`, let's add a while block after we iterate the boar
 
 ```js
 while (state.queue.length) {
-  propagateConstraintsFromCell(state, state.queue.shift());
+  propagateFromResolvedCell(state, state.queue.shift());
 }
 ```
 
-Having established this pattern, why bother having `propagateConstraints` iterate the board at all to check for `cell.size === 1`? We could add a size check and and enqueue operation to our edge constraint functions. But we'd have to perform this check for all three cases (`1 < c < N`, `c === 1`, and `c === 0`). We could further attempt to avoid repeating ourselves here by building a [facade](https://en.wikipedia.org/wiki/Facade_pattern) around the `.delete()` method--something like `deleteAndEnqueueIfResolved`--but we already sometimes modify constraint lists through means other than `.delete()`, meaning we'd either need separate facades for each type of modification to a constraint list which we perform, or we'd need our facade to be capable of performing multiple types of constraint list modification, depending on how it is called. Both would arguably make our code more and not less complex.
+Having established this pattern, why bother having `propagateConstraints` iterate the board at all to check for `cell.size === 1`? We could add a size check and and enqueue operation to `performEdgeClueInitialization`, and have `propagateConstraints` be driven solely by the queue. But, we'd have to perform this size check for all three cases for `c` in `performEdgeClueInitialization`, each of which use slightly different methods to alter constraint lists. We need an abstraction like a [facade](https://en.wikipedia.org/wiki/Facade_pattern) or [proxy](https://en.wikipedia.org/wiki/Proxy_pattern) around all of these methods versatile enough to handle not only the ways we modify constraint lists in the edge clue functions but also, hopefully, ways we might modify constraint lists in the future-- as we'll want to make sure we propagate constraints every time they change.
 
-Rather than an abstraction which performs cell mutation and then performs a check for cell resolution, let's instead abstract _only_ the resolution check and enqueueing operation. That way, we can call this function anywhere we mutate constraint lists without having to worry about just how the mutation takes place. Here's a first attempt:
+How to approach this? So far, we've used `Set.prototype.delete()` to eliminate individual values from cells, but have also used `.clear()` followed by `.add()` to quickly resolve a cell with multiple values in its constraint list to just a single value. This suggests two basic use cases: deleting a value, and deleting everything but a value. Since the latter is reducible to repeated applications of the former, let's treat `.delete()` as primitive; we'll first write an abstraction around it which also checks for `cell.size === 1` and enqueues after a successful delete, and then wrap this in a secondary abstraction which transforms cell resolutions into repeated applications of our delete abstraction. Here's what it looks like:
 
 ```js
 // mutates state.queue
-const enqueueCellIfResolved = (state, cellIndex) => {
-  if (state.board[cellIndex].size === 1) {
-    state.queue.push(cellIndex);
+// mutates state.board.cellIndex
+const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
+  console.assert(
+    !deleteValue != !resolveValue,
+    'constrainAndEnqueue called with bad arguments'
+  ); // XOR check
+
+  const constrain = (idxToConstrain, valueToDelete) => {
+    const cell = state.board[idxToConstrain];
+    let mutated = cell.delete(valueToDelete);
+    if (mutated && cell.size === 1) {
+      state.queue.push(idxToConstrain);
+    } else if (cell.size === 0) {
+      throw new Error(`cell ${idxToConstrain} is empty`);
+    }
+  };
+
+  if (deleteValue) {
+    constrain(cellIndex, deleteValue);
+  } else {
+    for (let value of state.board[cellIndex]) {
+      if (value !== resolveValue) {
+        constrain(cellIndex, value);
+      }
+    }
   }
+};
 ```
 
-We can then call this function after modifying constraint lists inside `constrainCellWithClue`, `performEdgeClueInitialization`, `propagateConstraintsFromCell`, and in the future anywhere else we edit the contents of cells.
+Besides passing in state and the cell index to mutate, we can pass in either a value to eliminate from its constraint list or a value to resolve to-- but not neither and not both. The `console.assert()` ensures this. There's also a check to make sure that after a successful delete, we haven't ended up with an empty cell, in which we've ruled out all possible values, which should never happen for a set of valid Skyscraper clues.
 
-What do we have so far? Our code is now set up to make inferences from edge clues, and repeatedly propagate constraints from resolved cells, drawing out all possible consequences from these two methods in combination. Let's add a new form of inference to our toolbox.
+After updating `performEdgeClueInitialization` and `propagateFromResolvedCell` to use this new function, where does this leave us? The program is capable of making inferences from edge clues and repeatedly propagating constraints from cells resolved in this process, drawing out all possible consequences from these two methods in combination. And, the infrastructure we've put together is extensible to other forms of inference. Let's add another to the mix.
 
 ## Process of Elimination
 
-Process of elimination allows the player to resolve a cell to a value when that value is no longer present in any other cells in either that cell's row or it's column. That is: if a given cell's constraint list shows a 4 as a possibility for itself, but no other cells show a four in either its row or its column (or both-- it's an inclusive or), we know that cell _must_ be the 4, for its row and column. For instance, in the example we've been working with, the absence of a 4 in all cells of column three except the third allows us to resolve that cell to 4:
+Process of elimination allows the player to resolve a cell to a value when that value is no longer present in any other cells in either that cell's row or column. That is: if a given cell's constraint list shows a 4 as a possibility for itself, but no other cells show a four in its row or column (or both), we know that the cell in question _must_ be the 4 in its row and column.
+
+For instance, in the example we've been working with, the absence of a 4 in all cells of column three except the third allows us to resolve that cell to 4:
 
 <table style="margin: 5px auto; font-family: monospace; text-align: center;">
   <tbody>
@@ -526,4 +551,6 @@ Process of elimination allows the player to resolve a cell to a value when that 
   </tbody>
 </table>
 
-How to implement this? We don't want to replicate the pattern we optimized away, above, in which we iteratively search the entire board for cells which meet process-of-elimination criteria-- we want to call PoE function right after we update a cell. In this context, we'll know what value
+How to implement PoE? We don't want to replicate the design we optimized away, above, in which we iteratively search the entire board for some pattern or criteria-- we want to call PoE function right after we mutate cells.
+
+In this context, we'll know what value
