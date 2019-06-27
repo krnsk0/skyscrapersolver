@@ -54,9 +54,44 @@ const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
     'constrainAndEnqueue called with bad arguments'
   ); // XOR check
 
+  console.log(
+    `cellIndex, deleteValue, resolveValue`,
+    cellIndex,
+    deleteValue,
+    resolveValue
+  );
+
   const constrain = (idxToConstrain, valueToDelete) => {
     const cell = state.board[idxToConstrain];
     let mutated = cell.delete(valueToDelete);
+
+    if (mutated) {
+      const poeCellIndices = poeCellSearch(
+        state,
+        idxToConstrain,
+        valueToDelete
+      );
+      console.log(
+        'poeCellIndices, idxToConstrain',
+        poeCellIndices,
+        idxToConstrain,
+        valueToDelete
+      );
+      poeCellIndices.forEach(poeCellIndex => {
+        console.log(
+          'pushing to queue resolve cell',
+          poeCellIndex,
+          'to',
+          valueToDelete
+        );
+        state.queue.push({
+          type: 'RESOLVE_CELL_TO_VALUE',
+          cellIndex: poeCellIndex,
+          resolveToValue: valueToDelete
+        });
+      });
+    }
+
     if (mutated && cell.size === 1) {
       state.queue.push({
         type: 'PROPAGATE_CONTSTRAINTS_FROM',
@@ -101,12 +136,12 @@ const performEdgeClueInitialization = state => {
     }
     // resolve the first cell to N when the clue is 1
     else if (c === 1) {
-      constrainAndEnqueue(state, cellIndices[0], null, state.N);
+      constrainAndEnqueue(state, cellIndices[0], undefined, state.N);
     }
     // resolve the entire row when the clue is N
     else if (c === state.N) {
       cellIndices.forEach((cellIndex, distance) => {
-        constrainAndEnqueue(state, cellIndex, null, distance + 1);
+        constrainAndEnqueue(state, cellIndex, undefined, distance + 1);
       });
     }
   });
@@ -137,8 +172,11 @@ const propagateFromResolvedCell = (state, cellIndex) => {
 const queueProcessor = state => {
   while (state.queue.length) {
     const action = state.queue.shift();
+    console.log(action);
     if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
       propagateFromResolvedCell(state, action.cellIndex);
+    } else if (action.type === 'RESOLVE_CELL_TO_VALUE') {
+      // constrainAndEnqueue(state, action.cellIndex, null, action.resolveToValue);
     }
   }
 };
@@ -162,9 +200,12 @@ const filterResolvedCells = (state, cellIndices) => {
 };
 
 const countValueInCells = (state, cellIndices, valueToCount) => {
-  return cellIndices.reduce((count, cellIndex) => {
-    return count + state.board[cellIndex].has(valueToCount) ? 1 : 0;
+  const count = cellIndices.reduce((accum, cellIndex) => {
+    if (state.board[cellIndex].has(valueToCount)) return accum + 1;
+    else return accum;
   }, 0);
+
+  return count;
 };
 
 const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
@@ -174,23 +215,31 @@ const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
 const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
   // row
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
-  const resolvedRowIndices = filterResolvedCells(state, rowIndices);
-  const rowDeletedValueCount = countValueInCells(state, resolvedRowIndices);
+  const nonResolvedRowIndices = filterResolvedCells(state, rowIndices);
+  const rowDeletedValueCount = countValueInCells(
+    state,
+    nonResolvedRowIndices,
+    deletedValue
+  );
 
   // col
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
-  const resolvedColIndices = filterResolvedCells(state, colIndices);
-  const colDeletedValueCount = countValueInCells(state, resolvedColIndices);
+  const nonResolvedColIndices = filterResolvedCells(state, colIndices);
+  const colDeletedValueCount = countValueInCells(
+    state,
+    nonResolvedColIndices,
+    deletedValue
+  );
 
   const results = [];
   if (rowDeletedValueCount === 1) {
     results.push(
-      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+      findCellIndexWithValue(state, nonResolvedRowIndices, deletedValue)
     );
   }
   if (colDeletedValueCount === 1) {
     results.push(
-      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+      findCellIndexWithValue(state, nonResolvedColIndices, deletedValue)
     );
   }
   return results;
@@ -201,7 +250,8 @@ const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-  queueProcessor(state);
+  console.log('FINISHED CLUES');
+  // queueProcessor(state);
 
   return state;
 };

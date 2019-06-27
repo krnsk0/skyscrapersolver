@@ -557,9 +557,10 @@ How to implement PoE? We don't want to replicate the design we optimized away, a
 
 1. Takes in a value that's just been crossed off a constraint list for a given cell
 2. Gets the row indices for the cell we modified
-3. Checks to see if for all other cells in that row which are non-resolved, the value just crossed off appears just once
-4. If so, resolves the cell where the value appears
-5. Repeats steps (2) -(4) for the column, instead of the row.
+3. Check to see if we've already resolved that value in this row; if so, we're done.
+4. For all other cells in that row, does the value just crossed off appear just once?
+5. If so, resolves the cell where the value appears
+6. Repeats steps (2) -(4) for the column, instead of the row.
 
 Building from the inside out, let's start with some helpers to get the row/column indices for a cellIndex, sans the cellIndex.
 
@@ -587,9 +588,12 @@ const filterResolvedCells = (state, cellIndices) => {
 };
 
 const countValueInCells = (state, cellIndices, valueToCount) => {
-  return cellIndices.reduce((count, cellIndex) => {
-    return count + state.board[cellIndex].has(valueToCount) ? 1 : 0;
+  const count = cellIndices.reduce((accum, cellIndex) => {
+    if (state.board[cellIndex].has(valueToCount)) return accum + 1;
+    else return accum;
   }, 0);
+
+  return count;
 };
 ```
 
@@ -611,23 +615,31 @@ const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
 const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
   // row
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
-  const resolvedRowIndices = filterResolvedCells(state, rowIndices);
-  const rowDeletedValueCount = countValueInCells(state, resolvedRowIndices);
+  const nonResolvedRowIndices = filterResolvedCells(state, rowIndices);
+  const rowDeletedValueCount = countValueInCells(
+    state,
+    nonResolvedRowIndices,
+    deletedValue
+  );
 
   // col
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
-  const resolvedColIndices = filterResolvedCells(state, colIndices);
-  const colDeletedValueCount = countValueInCells(state, resolvedColIndices);
+  const nonResolvedColIndices = filterResolvedCells(state, colIndices);
+  const colDeletedValueCount = countValueInCells(
+    state,
+    nonResolvedColIndices,
+    deletedValue
+  );
 
   const results = [];
   if (rowDeletedValueCount === 1) {
     results.push(
-      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+      findCellIndexWithValue(state, nonResolvedRowIndices, deletedValue)
     );
   }
   if (colDeletedValueCount === 1) {
     results.push(
-      findCellIndexWithValue(state, resolvedRowIndices, deletedValue)
+      findCellIndexWithValue(state, nonResolvedColIndices, deletedValue)
     );
   }
   return results;
@@ -650,4 +662,29 @@ Next, we'll modify in `constrainAndEnqueue` pass an object into the queue with a
 if (mutated && cell.size === 1) {
   state.queue.push({ type: 'PROPAGATE_CONTSTRAINTS_FROM', idxToConstrain });
 }
+```
+
+Now we need a switch/case-type structure in `queueProcessor`, which we'll implement with if/else so we get block scope:
+
+```js
+const queueProcessor = state => {
+  while (state.queue.length) {
+    const action = state.queue.shift();
+    if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
+      propagateFromResolvedCell(state, action.cellIndex);
+    } else {
+      // todo
+    }
+  }
+};
+```
+
+Finally, we can wire up `poeCellSearch` inside of `constrainAndEnqueue`:
+
+```js
+```
+
+And then we can add a new case inside of `queueProcessor`:
+
+```js
 ```
