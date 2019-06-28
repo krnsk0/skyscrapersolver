@@ -47,19 +47,17 @@ const initializeState = clues => {
 
 // mutates state.queue
 // mutates state.board.cellIndex
-const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
+const constrainAndEnqueue = (
+  state,
+  cellIndex,
+  deleteValue = null,
+  resolveValue = null
+) => {
   console.assert(
     // eslint-disable-next-line eqeqeq
     !deleteValue != !resolveValue,
     'constrainAndEnqueue called with bad arguments'
   ); // XOR check
-
-  console.log(
-    `cellIndex, deleteValue, resolveValue`,
-    cellIndex,
-    deleteValue,
-    resolveValue
-  );
 
   const constrain = (idxToConstrain, valueToDelete) => {
     const cell = state.board[idxToConstrain];
@@ -71,19 +69,7 @@ const constrainAndEnqueue = (state, cellIndex, deleteValue, resolveValue) => {
         idxToConstrain,
         valueToDelete
       );
-      console.log(
-        'poeCellIndices, idxToConstrain',
-        poeCellIndices,
-        idxToConstrain,
-        valueToDelete
-      );
       poeCellIndices.forEach(poeCellIndex => {
-        console.log(
-          'pushing to queue resolve cell',
-          poeCellIndex,
-          'to',
-          valueToDelete
-        );
         state.queue.push({
           type: 'RESOLVE_CELL_TO_VALUE',
           cellIndex: poeCellIndex,
@@ -172,11 +158,11 @@ const propagateFromResolvedCell = (state, cellIndex) => {
 const queueProcessor = state => {
   while (state.queue.length) {
     const action = state.queue.shift();
-    console.log(action);
+
     if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
       propagateFromResolvedCell(state, action.cellIndex);
     } else if (action.type === 'RESOLVE_CELL_TO_VALUE') {
-      // constrainAndEnqueue(state, action.cellIndex, null, action.resolveToValue);
+      constrainAndEnqueue(state, action.cellIndex, null, action.resolveToValue);
     }
   }
 };
@@ -193,6 +179,15 @@ const getColIndicesFromCellIndex = (state, cellIndex) => {
   return [...getCellIndicesFromColIndex(x, state.N)].filter(
     idx => idx !== cellIndex
   );
+};
+
+const isValueResolvedInCellIndices = (state, cellIndices, valueToCheck) => {
+  let found = false;
+  cellIndices.forEach(cellIndex => {
+    let cell = state.board[cellIndex];
+    if (cell.size === 1 && cell.has(valueToCheck)) found = true;
+  });
+  return found;
 };
 
 const filterResolvedCells = (state, cellIndices) => {
@@ -215,21 +210,29 @@ const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
 const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
   // row
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
-  const nonResolvedRowIndices = filterResolvedCells(state, rowIndices);
-  const rowDeletedValueCount = countValueInCells(
-    state,
-    nonResolvedRowIndices,
-    deletedValue
-  );
+  let rowDeletedValueCount = 0;
+  let nonResolvedRowIndices = [];
+  if (!isValueResolvedInCellIndices(state, rowIndices, deletedValue)) {
+    nonResolvedRowIndices = filterResolvedCells(state, rowIndices);
+    rowDeletedValueCount = countValueInCells(
+      state,
+      nonResolvedRowIndices,
+      deletedValue
+    );
+  }
 
   // col
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
-  const nonResolvedColIndices = filterResolvedCells(state, colIndices);
-  const colDeletedValueCount = countValueInCells(
-    state,
-    nonResolvedColIndices,
-    deletedValue
-  );
+  let colDeletedValueCount = 0;
+  let nonResolvedColIndices = [];
+  if (!isValueResolvedInCellIndices(state, colIndices, deletedValue)) {
+    nonResolvedColIndices = filterResolvedCells(state, colIndices);
+    colDeletedValueCount = countValueInCells(
+      state,
+      nonResolvedColIndices,
+      deletedValue
+    );
+  }
 
   const results = [];
   if (rowDeletedValueCount === 1) {
@@ -242,6 +245,7 @@ const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
       findCellIndexWithValue(state, nonResolvedColIndices, deletedValue)
     );
   }
+
   return results;
 };
 
@@ -250,8 +254,7 @@ const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-  console.log('FINISHED CLUES');
-  // queueProcessor(state);
+  queueProcessor(state);
 
   return state;
 };

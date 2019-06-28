@@ -533,7 +533,7 @@ For instance, in the example we've been working with, the absence of a 4 in all 
       <td style="border: 1px solid; width: 1em;">123</td>
     </tr>
     <tr>
-      <td style="border: 1px solid; width: 1em;">1234</td>
+      <td style="border: 1px solid; width: 1em;">123</td>
       <td style="border: 1px solid; width: 1em;">1234</td>
       <td style="border: 1px solid; width: 1em; background-color: grey;">123</td>
       <td style="border: 1px solid; width: 1em;">12</td>
@@ -560,7 +560,7 @@ How to implement PoE? We don't want to replicate the design we optimized away, a
 3. Check to see if we've already resolved that value in this row; if so, we're done.
 4. For all other cells in that row, does the value just crossed off appear just once?
 5. If so, resolves the cell where the value appears
-6. Repeats steps (2) -(4) for the column, instead of the row.
+6. Repeats steps (2) -(5) for the column, instead of the row.
 
 Building from the inside out, let's start with some helpers to get the row/column indices for a cellIndex, sans the cellIndex.
 
@@ -577,6 +577,19 @@ const getColIndicesFromCellIndex = (state, cellIndex) => {
   return [...getCellIndicesFromColIndex(x, state.N)].filter(
     idx => idx !== cellIndex
   );
+};
+```
+
+We're going to examine a value just deleted from a constraint list to see if we can resolve other cells to it-- which is something we _don't_ need to do if the value in question is already resolved for a row or column. If, for example, we're in the midst of propagating constraints from a resolved cell, we don't need to run PoE for that value in its row and column, and we can do an early return. Here's a helper to facilitate this:
+
+```js
+const isValueResolvedInCellIndices = (state, cellIndices, valueToCheck) => {
+  let found = false;
+  cellIndices.forEach(cellIndex => {
+    let cell = state.board[cellIndex];
+    if (cell.size === 1 && cell.has(valueToCheck)) found = true;
+  });
+  return found;
 };
 ```
 
