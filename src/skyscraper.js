@@ -38,8 +38,8 @@ const getCellIndicesFromClueIndex = (clueIndex, N) => {
 
 const initializeState = clues => {
   return {
-    N: Math.sqrt(clues.length),
-    board: boardFactory(Math.sqrt(clues.length)),
+    N: clues.length / 4,
+    board: boardFactory(clues.length / 4),
     clues,
     queue: []
   };
@@ -187,11 +187,6 @@ const isValueResolvedInCellIndices = (state, cellIndices, valueToCheck) => {
     if (cell.size === 1 && cell.has(valueToCheck)) return true;
   }
   return false;
-};
-
-const filterResolvedCells = (state, cellIndices) => {
-  // return cellIndices.filter(cellIndex => state.board[cellIndex].size !== 1);
-  return cellIndices;
 };
 
 const countValueInCells = (state, cellIndices, valueToCount) => {
