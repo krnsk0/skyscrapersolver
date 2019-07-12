@@ -63,19 +63,8 @@ const constrainAndEnqueue = (
     const cell = state.board[idxToConstrain];
     let mutated = cell.delete(valueToDelete);
 
-    if (mutated) {
-      const poeCellIndices = poeCellSearch(
-        state,
-        idxToConstrain,
-        valueToDelete
-      );
-      poeCellIndices.forEach(poeCellIndex => {
-        state.queue.push({
-          type: 'RESOLVE_CELL_TO_VALUE',
-          cellIndex: poeCellIndex,
-          resolveToValue: valueToDelete
-        });
-      });
+    if (cell.size === 0) {
+      throw new Error(`cell ${idxToConstrain} is empty`);
     }
 
     if (mutated && cell.size === 1) {
@@ -83,8 +72,10 @@ const constrainAndEnqueue = (
         type: 'PROPAGATE_CONTSTRAINTS_FROM',
         cellIndex: idxToConstrain
       });
-    } else if (cell.size === 0) {
-      throw new Error(`cell ${idxToConstrain} is empty`);
+    }
+
+    if (mutated) {
+      poeSearchAndEnqueue(state, idxToConstrain, valueToDelete);
     }
   };
 
@@ -208,17 +199,25 @@ const countDeletedValue = (state, cellIndices, deletedValue) => {
     : 0;
 };
 
-const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
+// mutates state.queue
+const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
 
-  const results = [];
   [rowIndices, colIndices].forEach(cellIndices => {
     if (countDeletedValue(state, cellIndices, deletedValue) === 1) {
-      results.push(findCellIndexWithValue(state, rowIndices, deletedValue));
+      const poeCellIndex = findCellIndexWithValue(
+        state,
+        rowIndices,
+        deletedValue
+      );
+      state.queue.push({
+        type: 'RESOLVE_CELL_TO_VALUE',
+        cellIndex: poeCellIndex,
+        resolveToValue: deletedValue
+      });
     }
   });
-  return results;
 };
 
 // *** MAIN ***
