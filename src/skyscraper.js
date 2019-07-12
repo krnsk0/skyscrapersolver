@@ -46,7 +46,7 @@ const initializeState = clues => {
 };
 
 // mutates state.queue
-// mutates state.board.cellIndex
+// mutates state.board
 const constrainAndEnqueue = (
   state,
   cellIndex,
@@ -99,9 +99,9 @@ const constrainAndEnqueue = (
   }
 };
 
-// mutates state!
+// mutates state
 const performEdgeClueInitialization = state => {
-  // mutates cell!
+  // mutates cell
   const constrainCellWithClue = (cell, c, distance, cellIndex) => {
     const minimum = state.N - c + 2 + distance;
     for (let i = minimum; i <= state.N; i += 1) {
@@ -142,7 +142,7 @@ const getCrossIndicesFromCellIndex = (state, cellIndex) => {
   ].filter(idx => idx !== cellIndex);
 };
 
-// mutates state!
+// mutates state
 const propagateFromResolvedCell = (state, cellIndex) => {
   let list = state.board[cellIndex];
   if (list.size > 1) {
@@ -182,16 +182,16 @@ const getColIndicesFromCellIndex = (state, cellIndex) => {
 };
 
 const isValueResolvedInCellIndices = (state, cellIndices, valueToCheck) => {
-  let found = false;
-  cellIndices.forEach(cellIndex => {
-    let cell = state.board[cellIndex];
-    if (cell.size === 1 && cell.has(valueToCheck)) found = true;
-  });
-  return found;
+  for (let i = 0; i <= cellIndices.length - 1; i += 1) {
+    let cell = state.board[cellIndices[i]];
+    if (cell.size === 1 && cell.has(valueToCheck)) return true;
+  }
+  return false;
 };
 
 const filterResolvedCells = (state, cellIndices) => {
-  return cellIndices.filter(cellIndex => state.board[cellIndex].size !== 1);
+  // return cellIndices.filter(cellIndex => state.board[cellIndex].size !== 1);
+  return cellIndices;
 };
 
 const countValueInCells = (state, cellIndices, valueToCount) => {
@@ -211,39 +211,23 @@ const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
   // row
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
   let rowDeletedValueCount = 0;
-  let nonResolvedRowIndices = [];
   if (!isValueResolvedInCellIndices(state, rowIndices, deletedValue)) {
-    nonResolvedRowIndices = filterResolvedCells(state, rowIndices);
-    rowDeletedValueCount = countValueInCells(
-      state,
-      nonResolvedRowIndices,
-      deletedValue
-    );
+    rowDeletedValueCount = countValueInCells(state, rowIndices, deletedValue);
   }
 
   // col
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
   let colDeletedValueCount = 0;
-  let nonResolvedColIndices = [];
   if (!isValueResolvedInCellIndices(state, colIndices, deletedValue)) {
-    nonResolvedColIndices = filterResolvedCells(state, colIndices);
-    colDeletedValueCount = countValueInCells(
-      state,
-      nonResolvedColIndices,
-      deletedValue
-    );
+    colDeletedValueCount = countValueInCells(state, colIndices, deletedValue);
   }
 
   const results = [];
   if (rowDeletedValueCount === 1) {
-    results.push(
-      findCellIndexWithValue(state, nonResolvedRowIndices, deletedValue)
-    );
+    results.push(findCellIndexWithValue(state, rowIndices, deletedValue));
   }
   if (colDeletedValueCount === 1) {
-    results.push(
-      findCellIndexWithValue(state, nonResolvedColIndices, deletedValue)
-    );
+    results.push(findCellIndexWithValue(state, colIndices, deletedValue));
   }
 
   return results;
