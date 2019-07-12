@@ -202,29 +202,22 @@ const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
   return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
 };
 
-const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
-  // row
-  const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
-  let rowDeletedValueCount = 0;
-  if (!isValueResolvedInCellIndices(state, rowIndices, deletedValue)) {
-    rowDeletedValueCount = countValueInCells(state, rowIndices, deletedValue);
-  }
+const countDeletedValue = (state, cellIndices, deletedValue) => {
+  return isValueResolvedInCellIndices(state, cellIndices, deletedValue)
+    ? countValueInCells(state, cellIndices, deletedValue)
+    : 0;
+};
 
-  // col
+const poeCellSearch = (state, modifiedCellIndex, deletedValue) => {
+  const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
-  let colDeletedValueCount = 0;
-  if (!isValueResolvedInCellIndices(state, colIndices, deletedValue)) {
-    colDeletedValueCount = countValueInCells(state, colIndices, deletedValue);
-  }
 
   const results = [];
-  if (rowDeletedValueCount === 1) {
-    results.push(findCellIndexWithValue(state, rowIndices, deletedValue));
-  }
-  if (colDeletedValueCount === 1) {
-    results.push(findCellIndexWithValue(state, colIndices, deletedValue));
-  }
-
+  [rowIndices, colIndices].forEach(cellIndices => {
+    if (countDeletedValue(state, cellIndices, deletedValue) === 1) {
+      results.push(findCellIndexWithValue(state, rowIndices, deletedValue));
+    }
+  });
   return results;
 };
 
