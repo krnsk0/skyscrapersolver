@@ -4,14 +4,14 @@
   "main": "index.js",
   "scripts": {
     "build-watch": "webpack --mode=development -w",
-    "serve": "http-server -p 5050 -c-1 ./public",
+    "serve": "live-server --port=5050 --watch=./public --open=./public/index.html",
     "start": "npm run build-watch & npm run serve"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "live-server": "^1.2.1",
     "lodash": "^4.17.11",
-    "http-server": "^0.11.1",
     "react": "^16.8.6",
     "react-dom": "^16.8.6"
   },
