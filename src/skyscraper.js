@@ -149,6 +149,7 @@ const propagateFromResolvedCell = (state, cellIndex) => {
 const queueProcessor = state => {
   while (state.queue.length) {
     const action = state.queue.shift();
+    console.log('action: ', action);
 
     if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
       propagateFromResolvedCell(state, action.cellIndex);
@@ -193,10 +194,10 @@ const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
   return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
 };
 
-const countDeletedValue = (state, cellIndices, deletedValue) => {
+const countValueInCellIndices = (state, cellIndices, deletedValue) => {
   return isValueResolvedInCellIndices(state, cellIndices, deletedValue)
-    ? countValueInCells(state, cellIndices, deletedValue)
-    : 0;
+    ? 0
+    : countValueInCells(state, cellIndices, deletedValue);
 };
 
 // mutates state.queue
@@ -205,12 +206,15 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
 
   [rowIndices, colIndices].forEach(cellIndices => {
-    if (countDeletedValue(state, cellIndices, deletedValue) === 1) {
+    const count = countValueInCellIndices(state, cellIndices, deletedValue);
+
+    if (count === 1) {
       const poeCellIndex = findCellIndexWithValue(
         state,
-        rowIndices,
+        cellIndices,
         deletedValue
       );
+
       state.queue.push({
         type: 'RESOLVE_CELL_TO_VALUE',
         cellIndex: poeCellIndex,
@@ -225,6 +229,8 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
+  console.log('state: ', state);
+
   queueProcessor(state);
 
   return state;
