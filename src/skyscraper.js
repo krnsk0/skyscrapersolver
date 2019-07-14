@@ -47,45 +47,32 @@ const initializeState = clues => {
 
 // mutates state.queue
 // mutates state.board
-const constrainAndEnqueue = (
-  state,
-  cellIndex,
-  deleteValue = null,
-  resolveValue = null
-) => {
-  console.assert(
-    // eslint-disable-next-line eqeqeq
-    !deleteValue != !resolveValue,
-    'constrainAndEnqueue called with bad arguments'
-  ); // XOR check
+const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
+  const cell = state.board[cellIndex];
+  let mutated = cell.delete(valueToDelete);
 
-  const constrain = (idxToConstrain, valueToDelete) => {
-    const cell = state.board[idxToConstrain];
-    let mutated = cell.delete(valueToDelete);
+  if (cell.size === 0) {
+    throw new Error(`cell ${cellIndex} is empty`);
+  }
 
-    if (cell.size === 0) {
-      throw new Error(`cell ${idxToConstrain} is empty`);
-    }
+  if (mutated && cell.size === 1) {
+    state.queue.push({
+      type: 'PROPAGATE_CONTSTRAINTS_FROM',
+      cellIndex
+    });
+  }
 
-    if (mutated && cell.size === 1) {
-      state.queue.push({
-        type: 'PROPAGATE_CONTSTRAINTS_FROM',
-        cellIndex: idxToConstrain
-      });
-    }
+  if (mutated) {
+    poeSearchAndEnqueue(state, cellIndex, valueToDelete);
+  }
+};
 
-    if (mutated) {
-      poeSearchAndEnqueue(state, idxToConstrain, valueToDelete);
-    }
-  };
-
-  if (deleteValue) {
-    constrain(cellIndex, deleteValue);
-  } else {
-    for (let value of state.board[cellIndex]) {
-      if (value !== resolveValue) {
-        constrain(cellIndex, value);
-      }
+// mutates state.queue
+// mutates state.board
+const resolveAndEnqueue = (state, cellIndex, valueToResolveTo) => {
+  for (let value of state.board[cellIndex]) {
+    if (value !== valueToResolveTo) {
+      constrainAndEnqueue(state, cellIndex, value);
     }
   }
 };
@@ -113,12 +100,12 @@ const performEdgeClueInitialization = state => {
     }
     // resolve the first cell to N when the clue is 1
     else if (c === 1) {
-      constrainAndEnqueue(state, cellIndices[0], undefined, state.N);
+      resolveAndEnqueue(state, cellIndices[0], state.N);
     }
     // resolve the entire row when the clue is N
     else if (c === state.N) {
       cellIndices.forEach((cellIndex, distance) => {
-        constrainAndEnqueue(state, cellIndex, undefined, distance + 1);
+        resolveAndEnqueue(state, cellIndex, distance + 1);
       });
     }
   });
@@ -149,12 +136,11 @@ const propagateFromResolvedCell = (state, cellIndex) => {
 const queueProcessor = state => {
   while (state.queue.length) {
     const action = state.queue.shift();
-    console.log('action: ', action);
 
     if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
       propagateFromResolvedCell(state, action.cellIndex);
     } else if (action.type === 'RESOLVE_CELL_TO_VALUE') {
-      constrainAndEnqueue(state, action.cellIndex, null, action.resolveToValue);
+      resolveAndEnqueue(state, action.cellIndex, action.resolveToValue);
     }
   }
 };
@@ -229,7 +215,6 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-  console.log('state: ', state);
 
   queueProcessor(state);
 
