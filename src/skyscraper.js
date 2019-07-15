@@ -1,5 +1,3 @@
-// import cloneDeep from 'lodash/cloneDeep';
-
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
 };
@@ -273,6 +271,7 @@ const edgeConstrainFromClue = (state, clueIndex) => {
 const iterateEdgeConstraints = state => {
   let clueIndex = 0;
   while (!isPuzzleSolved(state)) {
+    console.count('steps');
     edgeConstrainFromClue(state, clueIndex);
 
     queueProcessor(state);
