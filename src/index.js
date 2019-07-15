@@ -4,10 +4,40 @@ import ReactDOM from 'react-dom';
 import React from 'react';
 import solveSkyscraper from './skyscraper';
 
-// const clues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; blank
-// const clues = [1, 0, 0, 2, 0, 3, 0, 0, 0, 2, 0, 0, 2, 3, 0, 0]; bad gridlocked puzzle
+// const clues = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // blank
+// const clues = [1, 0, 0, 2, 0, 3, 0, 0, 0, 2, 0, 0, 2, 3, 0, 0]; // bad gridlocked puzzle
 // const clues = [2, 2, 1, 3, 2, 2, 3, 1, 1, 2, 2, 3, 3, 2, 1, 3];
-const clues = [0, 0, 1, 2, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0];
+// const clues = [0, 0, 1, 2, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0];
+const clues = [
+  0,
+  2,
+  3,
+  0,
+  2,
+  0,
+  0,
+  5,
+  0,
+  4,
+  5,
+  0,
+  4,
+  0,
+  0,
+  4,
+  2,
+  0,
+  0,
+  0,
+  6,
+  5,
+  2,
+  2,
+  2,
+  2,
+  4,
+  1
+];
 
 const state = solveSkyscraper(clues);
 

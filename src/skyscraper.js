@@ -159,55 +159,126 @@ const getColIndicesFromCellIndex = (state, cellIndex) => {
   );
 };
 
-const isValueResolvedInCellIndices = (state, cellIndices, valueToCheck) => {
-  for (let i = 0; i <= cellIndices.length - 1; i += 1) {
-    let cell = state.board[cellIndices[i]];
-    if (cell.size === 1 && cell.has(valueToCheck)) return true;
-  }
-  return false;
-};
-
-const countValueInCells = (state, cellIndices, valueToCount) => {
-  const count = cellIndices.reduce((accum, cellIndex) => {
-    if (state.board[cellIndex].has(valueToCount)) return accum + 1;
-    else return accum;
-  }, 0);
-
-  return count;
-};
-
-const findCellIndexWithValue = (state, cellIndices, valueToFind) => {
-  return cellIndices.find(cellIndex => state.board[cellIndex].has(valueToFind));
-};
-
-const countValueInCellIndices = (state, cellIndices, deletedValue) => {
-  return isValueResolvedInCellIndices(state, cellIndices, deletedValue)
-    ? 0
-    : countValueInCells(state, cellIndices, deletedValue);
-};
-
 // mutates state.queue
 const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
   const rowIndices = getRowIndicesFromCellIndex(state, modifiedCellIndex);
   const colIndices = getColIndicesFromCellIndex(state, modifiedCellIndex);
 
   [rowIndices, colIndices].forEach(cellIndices => {
-    const count = countValueInCellIndices(state, cellIndices, deletedValue);
+    let filteredIndices = cellIndices.filter(index => {
+      return state.board[index].has(deletedValue);
+    });
 
-    if (count === 1) {
-      const poeCellIndex = findCellIndexWithValue(
-        state,
-        cellIndices,
-        deletedValue
-      );
-
-      state.queue.push({
-        type: 'RESOLVE_CELL_TO_VALUE',
-        cellIndex: poeCellIndex,
-        resolveToValue: deletedValue
-      });
+    if (filteredIndices.length === 1) {
+      resolveAndEnqueue(state, filteredIndices[0], deletedValue);
     }
   });
+};
+
+// *** PART 2 ***
+
+const isPuzzleSolved = state => {
+  return (
+    state.board.reduce((acc, cell) => acc + cell.size, 0) === state.N * state.N
+  );
+};
+
+// takes an array of sets as inputs
+const makeAllUniqueCombinations = rowOrColumn => {
+  let results = [];
+
+  function recursiveHelper(arr, i) {
+    for (let value of rowOrColumn[i]) {
+      let copy = arr.slice();
+      if (arr.includes(value)) continue;
+      copy.push(value);
+
+      if (i === rowOrColumn.length - 1) {
+        results.push(copy);
+      } else {
+        recursiveHelper(copy, i + 1);
+      }
+    }
+  }
+  recursiveHelper([], 0);
+
+  return results;
+};
+
+const countVisible = sequence => {
+  let visible = 0;
+  let max = 0;
+
+  sequence.forEach(value => {
+    if (value > max) {
+      visible += 1;
+      max = value;
+    }
+  });
+  return visible;
+};
+
+const passClueCheck = (sequence, clue) => {
+  if (clue === 0) return true;
+  return clue === countVisible(sequence);
+};
+
+const generatePossibleSequences = (state, cellIndices, clueOne, clueTwo) => {
+  const uniqueCombos = makeAllUniqueCombinations(
+    cellIndices.map(cellIndex => state.board[cellIndex])
+  )
+    .filter(sequence => passClueCheck(sequence, clueOne))
+    .filter(sequence => {
+      return passClueCheck(sequence.slice().reverse(), clueTwo);
+    });
+  return uniqueCombos;
+};
+
+const getOppositeClueIndex = (clueIndex, N) => {
+  if (clueIndex < N) return 3 * N - 1 - clueIndex;
+  else if (clueIndex < 2 * N) return 4 * N - (clueIndex - N) - 1;
+};
+
+const reconcileConstraints = (state, cellIndices, sequences) => {
+  cellIndices.forEach((cellIndex, idx) => {
+    const newConstraintList = sequences.reduce((set, sequence) => {
+      set.add(sequence[idx]);
+      return set;
+    }, new Set());
+    const currentConstraintList = state.board[cellIndex];
+
+    currentConstraintList.forEach(currentConstraint => {
+      if (!newConstraintList.has(currentConstraint)) {
+        constrainAndEnqueue(state, cellIndex, currentConstraint);
+      }
+    });
+  });
+};
+
+// mutates state.board
+// mutates state.queue
+const edgeConstrainFromClue = (state, clueIndex) => {
+  // only accepts clueIndices on the top or right of the board!
+  const cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
+
+  const possibileSequences = generatePossibleSequences(
+    state,
+    cellIndices,
+    state.clues[clueIndex],
+    state.clues[getOppositeClueIndex(clueIndex, state.N)]
+  );
+  reconcileConstraints(state, cellIndices, possibileSequences);
+};
+
+const iterateEdgeConstraints = state => {
+  let clueIndex = 0;
+  while (!isPuzzleSolved(state)) {
+    edgeConstrainFromClue(state, clueIndex);
+
+    queueProcessor(state);
+    clueIndex += 1;
+    if (clueIndex === state.N * 2) clueIndex = 0;
+  }
 };
 
 // *** MAIN ***
@@ -215,8 +286,9 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
-
   queueProcessor(state);
+
+  iterateEdgeConstraints(state);
 
   return state;
 };
