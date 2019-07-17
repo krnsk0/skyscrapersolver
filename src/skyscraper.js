@@ -1,3 +1,4 @@
+let totalCombinations = 0;
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
 };
@@ -120,11 +121,11 @@ const getCrossIndicesFromCellIndex = (state, cellIndex) => {
 
 // mutates state
 const propagateFromResolvedCell = (state, cellIndex) => {
-  let list = state.board[cellIndex];
-  if (list.size > 1) {
+  let cell = state.board[cellIndex];
+  if (cell.size > 1) {
     throw new Error('propagate constraints called on a non-resolved cell');
   }
-  const valueToEliminate = list.values().next().value;
+  const valueToEliminate = cell.values().next().value;
   const crossIndices = getCrossIndicesFromCellIndex(state, cellIndex);
   crossIndices.forEach(crossIndex => {
     constrainAndEnqueue(state, crossIndex, valueToEliminate);
@@ -200,6 +201,7 @@ const makeAllUniqueCombinations = rowOrColumn => {
   }
   recursiveHelper([], 0);
 
+  totalCombinations += results.length;
   return results;
 };
 
@@ -256,6 +258,7 @@ const reconcileConstraints = (state, cellIndices, sequences) => {
 // mutates state.board
 // mutates state.queue
 const edgeConstrainFromClue = (state, clueIndex) => {
+  console.count('ran edgeConstrainFromClue');
   // only accepts clueIndices on the top or right of the board!
   const cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
 
@@ -271,7 +274,6 @@ const edgeConstrainFromClue = (state, clueIndex) => {
 const iterateEdgeConstraints = state => {
   let clueIndex = 0;
   while (!isPuzzleSolved(state)) {
-    console.count('steps');
     edgeConstrainFromClue(state, clueIndex);
 
     queueProcessor(state);
@@ -289,6 +291,7 @@ const solveSkyscraper = clues => {
 
   iterateEdgeConstraints(state);
 
+  console.log('totalCombinations', totalCombinations);
   return state;
 };
 
