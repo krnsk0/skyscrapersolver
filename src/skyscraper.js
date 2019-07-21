@@ -64,6 +64,7 @@ const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
   }
 
   if (mutated) {
+    state.changed = true;
     poeSearchAndEnqueue(state, cellIndex, valueToDelete);
   }
 };
@@ -179,8 +180,11 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
 };
 
 // *** PART 2 ***
-
+const memo = {};
 const makeAllUniqueSequences = rowOrColumn => {
+  const args = JSON.stringify(rowOrColumn);
+  if (memo[args]) return memo[args];
+
   let results = [];
 
   function recursiveHelper(arr, i) {
@@ -199,6 +203,7 @@ const makeAllUniqueSequences = rowOrColumn => {
   recursiveHelper([], 0);
 
   totalCombinations += results.length;
+  memo[args] = results;
   return results;
 };
 
@@ -249,7 +254,6 @@ const reconcileConstraints = (state, cellIndices, sequences) => {
 
     state.board[cellIndex].forEach(currentConstraint => {
       if (!newConstraintList.has(currentConstraint)) {
-        state.changed = true;
         constrainAndEnqueue(state, cellIndex, currentConstraint);
       }
     });
@@ -290,13 +294,17 @@ const isPuzzleSolved = state => {
 const iterateEdgeConstraints = state => {
   let sortedClueIndices = getSortedClueIndices(state);
 
-  let clueIndex = 0;
+  let i = 0;
   while (!isPuzzleSolved(state)) {
-    edgeConstrainFromClue(state, sortedClueIndices[clueIndex]);
+    edgeConstrainFromClue(state, sortedClueIndices[i]);
 
-    clueIndex += 1;
-    if (clueIndex === state.N * 2) {
-      clueIndex = 0;
+    if (edgeConstrainIterations > 1000) {
+      break;
+    }
+
+    i += 1;
+    if (i === state.N * 2) {
+      i = 0;
       sortedClueIndices = getSortedClueIndices(state);
     }
   }
@@ -321,8 +329,8 @@ const getSortedClueIndices = state => {
 
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
-  performEdgeClueInitialization(state);
-  // iterateEdgeConstraints(state);
+  // performEdgeClueInitialization(state);
+  iterateEdgeConstraints(state);
 
   console.log('totalCombinations', totalCombinations);
   console.log('edgeConstrainIterations: ', edgeConstrainIterations);

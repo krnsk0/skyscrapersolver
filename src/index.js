@@ -38,6 +38,38 @@ const clues = [
   4,
   0
 ]; // hard 7x7
+
+// const clues = [
+//   3,
+//   3,
+//   2,
+//   1,
+//   2,
+//   2,
+//   3,
+//   4,
+//   3,
+//   2,
+//   4,
+//   1,
+//   4,
+//   2,
+//   2,
+//   4,
+//   1,
+//   4,
+//   5,
+//   3,
+//   2,
+//   3,
+//   1,
+//   4,
+//   2,
+//   5,
+//   2,
+//   3
+// ]; // very hard 7x7 that requires backtracking
+
 var t0 = performance.now();
 const state = solveSkyscraper(clues);
 var t1 = performance.now();
