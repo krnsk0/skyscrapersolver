@@ -329,7 +329,7 @@ const getSortedClueIndices = state => {
 
 const solveSkyscraper = clues => {
   let state = initializeState(clues);
-  // performEdgeClueInitialization(state);
+  performEdgeClueInitialization(state);
   iterateEdgeConstraints(state);
 
   console.log('totalCombinations', totalCombinations);
