@@ -1,6 +1,3 @@
-let totalCombinations = 0;
-let edgeConstrainIterations = 0;
-
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
 };
@@ -42,7 +39,9 @@ const initializeState = clues => {
     N: clues.length / 4,
     board: boardFactory(clues.length / 4),
     clues,
-    queue: []
+    queue: [],
+    edgeConstrainIterations: 0,
+    totalCombinations: 0
   };
 };
 
@@ -64,7 +63,6 @@ const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
   }
 
   if (mutated) {
-    state.changed = true;
     poeSearchAndEnqueue(state, cellIndex, valueToDelete);
   }
 };
@@ -181,7 +179,7 @@ const poeSearchAndEnqueue = (state, modifiedCellIndex, deletedValue) => {
 
 // *** PART 2 ***
 const memo = {};
-const makeAllUniqueSequences = rowOrColumn => {
+const makeAllUniqueSequences = (rowOrColumn, state) => {
   const args = JSON.stringify(rowOrColumn);
   if (memo[args]) return memo[args];
 
@@ -202,7 +200,7 @@ const makeAllUniqueSequences = rowOrColumn => {
   }
   recursiveHelper([], 0);
 
-  totalCombinations += results.length;
+  state.totalCombinations += results.length;
   memo[args] = results;
   return results;
 };
@@ -237,7 +235,8 @@ const generatePossibleSequences = (
   clueIdxTwo
 ) => {
   return makeAllUniqueSequences(
-    cellIndices.map(cellIndex => state.board[cellIndex])
+    cellIndices.map(cellIndex => state.board[cellIndex]),
+    state
   )
     .filter(sequence => passClueCheck(sequence, state.clues[clueIdxOne]))
     .filter(sequence =>
@@ -263,7 +262,7 @@ const reconcileConstraints = (state, cellIndices, sequences) => {
 // mutates state.board
 // mutates state.queue
 const edgeConstrainFromClue = (state, clueIndex) => {
-  edgeConstrainIterations += 1;
+  state.edgeConstrainIterations += 1;
   // only accepts clueIndices on the top or right of the board!
   const cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
 
@@ -291,25 +290,6 @@ const isPuzzleSolved = state => {
   );
 };
 
-const iterateEdgeConstraints = state => {
-  let sortedClueIndices = getSortedClueIndices(state);
-
-  let i = 0;
-  while (!isPuzzleSolved(state)) {
-    edgeConstrainFromClue(state, sortedClueIndices[i]);
-
-    if (edgeConstrainIterations > 1000) {
-      break;
-    }
-
-    i += 1;
-    if (i === state.N * 2) {
-      i = 0;
-      sortedClueIndices = getSortedClueIndices(state);
-    }
-  }
-};
-
 const countRemainingValues = (state, clueIndex) => {
   return getCellIndicesFromClueIndex(clueIndex, state.N).reduce(
     (total, cellIndex) => {
@@ -325,6 +305,26 @@ const getSortedClueIndices = state => {
   });
 };
 
+const iterateEdgeConstraints = state => {
+  let sortedClueIndices = getSortedClueIndices(state);
+
+  let i = 0;
+
+  while (!isPuzzleSolved(state)) {
+    edgeConstrainFromClue(state, sortedClueIndices[i]);
+
+    if (state.edgeConstrainIterations > 1000) {
+      break;
+    }
+
+    i += 1;
+    if (i === state.N * 2) {
+      i = 0;
+      sortedClueIndices = getSortedClueIndices(state);
+    }
+  }
+};
+
 // *** MAIN ***
 
 const solveSkyscraper = clues => {
@@ -332,8 +332,8 @@ const solveSkyscraper = clues => {
   performEdgeClueInitialization(state);
   iterateEdgeConstraints(state);
 
-  console.log('totalCombinations', totalCombinations);
-  console.log('edgeConstrainIterations: ', edgeConstrainIterations);
+  console.log('totalCombinations', state.totalCombinations);
+  console.log('edgeConstrainIterations: ', state.edgeConstrainIterations);
   return state;
 };
 
