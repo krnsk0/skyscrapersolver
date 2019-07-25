@@ -82,7 +82,7 @@ const makeBottomRow = state => {
   return [' ', ...state.clues.slice(state.N * 2, state.N * 3).reverse(), ' '];
 };
 
-const makeMiddleRows = state => {
+const makeMiddleRows = (state, board) => {
   return Array.from({ length: state.N }, (_, i) => {
     const getCellIndicesFromRowIndex = (rowIndex, N) => {
       return Array.from({ length: N }, (_, i) => {
@@ -99,7 +99,7 @@ const makeMiddleRows = state => {
     };
 
     const rowIndices = getCellIndicesFromRowIndex(i, state.N);
-    const cells = rowIndices.map(idx => state.board[idx]).map(setToString);
+    const cells = rowIndices.map(idx => board[idx]).map(setToString);
 
     const leftClue = state.clues[state.N * 4 - i - 1] || ' ';
     const rightClue = state.clues[i + state.N] || ' ';
@@ -110,15 +110,28 @@ const makeMiddleRows = state => {
 
 const App = () => {
   const [selectedPuzzle, setSelectedPuzzle] = React.useState('hard7x7');
-  const [state, setState] = React.useState({ board: [], clues: [], N: 0 });
+  const [state, setState] = React.useState({
+    board: [],
+    clues: [],
+    N: 0,
+    history: []
+  });
+  const [pointer, setPointer] = React.useState(0);
 
   React.useEffect(() => {
+    setPointer(0);
     setState(solvePuzzle(selectedPuzzle));
   }, [selectedPuzzle]);
 
+  React.useEffect(() => {
+    if (state.history.length > 0) {
+      setPointer(state.history.length - 1);
+    }
+  }, [state]);
+
   const topRow = makeTopRow(state);
   const bottomRow = makeBottomRow(state);
-  const middleRows = makeMiddleRows(state);
+  const middleRows = makeMiddleRows(state, state.history[pointer]);
 
   return (
     <div
@@ -142,6 +155,30 @@ const App = () => {
           </option>
         ))}
       </select>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          width: '100px',
+          color: 'blue'
+        }}
+      >
+        <div
+          onClick={() => {
+            pointer > 0 && setPointer(pointer - 1);
+          }}
+        >
+          previous
+        </div>
+        <div
+          onClick={() => {
+            pointer < state.history.lenght - 1 && setPointer(pointer + 1);
+          }}
+        >
+          next
+        </div>
+      </div>
       <table
         style={{
           margin: '5px auto',

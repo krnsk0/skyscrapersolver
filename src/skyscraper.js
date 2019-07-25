@@ -45,7 +45,8 @@ const initializeState = clues => {
     N: clues.length / 4,
     board: boardFactory(clues.length / 4),
     clues,
-    queue: []
+    queue: [],
+    history: []
   };
 };
 
@@ -74,6 +75,7 @@ const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
   }
 
   if (mutated) {
+    state.history.push(cloneDeep(state.board));
     poeSearchAndEnqueue(state, cellIndex, valueToDelete);
   }
 };
