@@ -109,7 +109,7 @@ const makeMiddleRows = state => {
 };
 
 const App = () => {
-  const [selectedPuzzle, setSelectedPuzzle] = React.useState('easy4x4');
+  const [selectedPuzzle, setSelectedPuzzle] = React.useState('hard7x7');
   const [state, setState] = React.useState({ board: [], clues: [], N: 0 });
 
   React.useEffect(() => {
@@ -130,7 +130,10 @@ const App = () => {
     >
       <select
         style={{ width: '100px' }}
-        onChange={evt => setSelectedPuzzle(evt.target.value)}
+        onChange={evt => {
+          console.log(`SOLVING ${evt.target.value}`);
+          setSelectedPuzzle(evt.target.value);
+        }}
         value={selectedPuzzle}
       >
         {Object.entries(clueSet).map(entry => (

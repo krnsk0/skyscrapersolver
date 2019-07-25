@@ -1,3 +1,9 @@
+import cloneDeep from 'lodash/cloneDeep';
+let totalCombos = 0;
+let edgeConstrainIterations = 0;
+let guessAndCheckRuns = 0;
+let backtracks = 0;
+
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
 };
@@ -39,21 +45,26 @@ const initializeState = clues => {
     N: clues.length / 4,
     board: boardFactory(clues.length / 4),
     clues,
-    queue: [],
-    edgeConstrainIterations: 0,
-    totalCombinations: 0
+    queue: []
   };
 };
+
+class EmptyCellError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'EmptyCellError';
+  }
+}
 
 // mutates state.queue
 // mutates state.board
 const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
   const cell = state.board[cellIndex];
-  let mutated = cell.delete(valueToDelete);
-
-  if (cell.size === 0) {
-    throw new Error(`cell ${cellIndex} is empty`);
+  if (cell.size === 1 && cell.has(valueToDelete)) {
+    throw new EmptyCellError(`cell ${cellIndex} is empty`);
   }
+
+  let mutated = cell.delete(valueToDelete);
 
   if (mutated && cell.size === 1) {
     state.queue.push({
@@ -200,7 +211,7 @@ const makeAllUniqueSequences = (rowOrColumn, state) => {
   }
   recursiveHelper([], 0);
 
-  state.totalCombinations += results.length;
+  totalCombos += results.length;
   memo[args] = results;
   return results;
 };
@@ -262,7 +273,7 @@ const reconcileConstraints = (state, cellIndices, sequences) => {
 // mutates state.board
 // mutates state.queue
 const edgeConstrainFromClue = (state, clueIndex) => {
-  state.edgeConstrainIterations += 1;
+  edgeConstrainIterations += 1;
   // only accepts clueIndices on the top or right of the board!
   const cellIndices = getCellIndicesFromClueIndex(clueIndex, state.N);
 
@@ -284,13 +295,15 @@ const edgeConstrainFromClue = (state, clueIndex) => {
   queueProcessor(state);
 };
 
-const isPuzzleSolved = state => {
-  return (
-    state.board.reduce((acc, cell) => acc + cell.size, 0) === state.N * state.N
-  );
+const countRemainingValuesOnBoard = state => {
+  return state.board.reduce((acc, cell) => acc + cell.size, 0);
 };
 
-const countRemainingValues = (state, clueIndex) => {
+const isPuzzleSolved = state => {
+  return countRemainingValuesOnBoard(state) === state.N * state.N;
+};
+
+const countRemainingValuesFromClue = (state, clueIndex) => {
   return getCellIndicesFromClueIndex(clueIndex, state.N).reduce(
     (total, cellIndex) => {
       return total + state.board[cellIndex].size;
@@ -301,39 +314,86 @@ const countRemainingValues = (state, clueIndex) => {
 
 const getSortedClueIndices = state => {
   return Array.from({ length: state.N * 2 }, (_, i) => i).sort((a, b) => {
-    return countRemainingValues(state, a) - countRemainingValues(state, b);
+    return (
+      countRemainingValuesFromClue(state, a) -
+      countRemainingValuesFromClue(state, b)
+    );
   });
 };
 
 const iterateEdgeConstraints = state => {
-  let sortedClueIndices = getSortedClueIndices(state);
-
   let i = 0;
+  let sortedClueIndices = getSortedClueIndices(state);
+  let remainingValuesOnBoard = countRemainingValuesOnBoard(state);
 
   while (!isPuzzleSolved(state)) {
     edgeConstrainFromClue(state, sortedClueIndices[i]);
-
-    if (state.edgeConstrainIterations > 1000) {
-      break;
-    }
-
     i += 1;
     if (i === state.N * 2) {
       i = 0;
       sortedClueIndices = getSortedClueIndices(state);
+      if (remainingValuesOnBoard === countRemainingValuesOnBoard(state)) {
+        break;
+      }
+      remainingValuesOnBoard = countRemainingValuesOnBoard(state);
     }
   }
+};
+
+const guessAndCheck = (state, cellIndex) => {
+  if (cellIndex >= state.board.length) {
+    return state;
+  }
+
+  let stateCopy;
+  for (let remainingValue of state.board[cellIndex]) {
+    // console.log(`Trying ${remainingValue} for cellIndex ${cellIndex}`);
+    guessAndCheckRuns += 1;
+    stateCopy = cloneDeep(state);
+
+    try {
+      resolveAndEnqueue(stateCopy, cellIndex, remainingValue);
+      queueProcessor(state);
+      iterateEdgeConstraints(state);
+    } catch (error) {
+      if (error.name === 'EmptyCellError') {
+        backtracks += 1;
+        continue;
+      } else {
+        throw error;
+      }
+    }
+
+    let result = guessAndCheck(stateCopy, cellIndex + 1);
+    if (!result) {
+      continue;
+    } else {
+      return result;
+    }
+  }
+  return false;
 };
 
 // *** MAIN ***
 
 const solveSkyscraper = clues => {
+  totalCombos = 0;
+  edgeConstrainIterations = 0;
+  guessAndCheckRuns = 0;
+  backtracks = 0;
+
   let state = initializeState(clues);
   performEdgeClueInitialization(state);
   iterateEdgeConstraints(state);
 
-  console.log('totalCombinations', state.totalCombinations);
-  console.log('edgeConstrainIterations: ', state.edgeConstrainIterations);
+  if (!isPuzzleSolved(state)) {
+    state = guessAndCheck(state, 0);
+  }
+
+  console.log('totalCombos', totalCombos);
+  console.log('edgeConstrainIterations: ', edgeConstrainIterations);
+  console.log('guessAndCheckRuns: ', guessAndCheckRuns);
+  console.log('backtracks: ', backtracks);
   return state;
 };
 
