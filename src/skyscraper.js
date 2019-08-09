@@ -3,6 +3,7 @@ let totalCombos = 0;
 let edgeConstrainIterations = 0;
 let guessAndCheckRuns = 0;
 let backtracks = 0;
+let history = [];
 
 const constraintListFactory = N => {
   return new Set(Array.from({ length: N }, (_, i) => i + 1));
@@ -45,8 +46,7 @@ const initializeState = clues => {
     N: clues.length / 4,
     board: boardFactory(clues.length / 4),
     clues,
-    queue: [],
-    history: []
+    queue: []
   };
 };
 
@@ -60,6 +60,8 @@ class EmptyCellError extends Error {
 // mutates state.queue
 // mutates state.board
 const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
+  console.log('constrainAndEnqueue: cell, val', cellIndex, valueToDelete);
+
   const cell = state.board[cellIndex];
   if (cell.size === 1 && cell.has(valueToDelete)) {
     throw new EmptyCellError(`cell ${cellIndex} is empty`);
@@ -75,7 +77,8 @@ const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
   }
 
   if (mutated) {
-    state.history.push(cloneDeep(state.board));
+    console.log('HISTORY LENGTH', history.length);
+    history.push(cloneDeep(state.board));
     poeSearchAndEnqueue(state, cellIndex, valueToDelete);
   }
 };
@@ -83,11 +86,11 @@ const constrainAndEnqueue = (state, cellIndex, valueToDelete) => {
 // mutates state.queue
 // mutates state.board
 const resolveAndEnqueue = (state, cellIndex, valueToResolveTo) => {
-  for (let value of state.board[cellIndex]) {
+  state.board[cellIndex].forEach(value => {
     if (value !== valueToResolveTo) {
       constrainAndEnqueue(state, cellIndex, value);
     }
-  }
+  });
 };
 
 // mutates state
@@ -151,7 +154,6 @@ const propagateFromResolvedCell = (state, cellIndex) => {
 const queueProcessor = state => {
   while (state.queue.length) {
     const action = state.queue.shift();
-
     if (action.type === `PROPAGATE_CONTSTRAINTS_FROM`) {
       propagateFromResolvedCell(state, action.cellIndex);
     } else if (action.type === 'RESOLVE_CELL_TO_VALUE') {
@@ -349,7 +351,6 @@ const guessAndCheck = (state, cellIndex) => {
 
   let stateCopy;
   for (let remainingValue of state.board[cellIndex]) {
-    // console.log(`Trying ${remainingValue} for cellIndex ${cellIndex}`);
     guessAndCheckRuns += 1;
     stateCopy = cloneDeep(state);
 
@@ -396,6 +397,7 @@ const solveSkyscraper = clues => {
   console.log('edgeConstrainIterations: ', edgeConstrainIterations);
   console.log('guessAndCheckRuns: ', guessAndCheckRuns);
   console.log('backtracks: ', backtracks);
+  state.history = history;
   return state;
 };
 

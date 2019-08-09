@@ -117,6 +117,7 @@ const App = () => {
     history: []
   });
   const [pointer, setPointer] = React.useState(0);
+  console.log('pointer: ', pointer);
 
   React.useEffect(() => {
     setPointer(0);
@@ -171,9 +172,10 @@ const App = () => {
         >
           previous
         </div>
+        <input onChange={evt => setPointer(Number(evt.target.value))} />
         <div
           onClick={() => {
-            pointer < state.history.lenght - 1 && setPointer(pointer + 1);
+            pointer < state.history.length - 1 && setPointer(pointer + 1);
           }}
         >
           next
@@ -205,7 +207,7 @@ const App = () => {
                         ? '0px'
                         : '1px solid black'
                     }`,
-                    width: '1em'
+                    width: '10em'
                   }}
                 >
                   {cell}
